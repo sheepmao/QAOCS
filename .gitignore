@@ -1,0 +1,17 @@
+# ignore all files with the following extensions
+*.csv
+*.mp4
+*.png
+*.txt
+*.DS_Store
+# ignore all files in the following directories
+
+train/
+test/
+trace/
+baselines/
+Videos_result/
+log/
+PPO_logs/
+envivio/
+__pycache__/
