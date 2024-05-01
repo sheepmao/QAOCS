@@ -24,3 +24,14 @@ def load_trace(cooked_trace_folder=COOKED_TRACE_FOLDER):
         all_file_names.append(cooked_file)
 
     return all_cooked_time, all_cooked_bw, all_file_names
+
+def load_trace_evaluate(trace_filename):
+    cooked_bw = []
+    cooked_time = []
+    assert os.path.exists(trace_filename)
+    with open(trace_filename, 'rb') as f:
+        for line in f:
+            parse = line.split()
+            cooked_time.append(float(parse[0]))
+            cooked_bw.append(float(parse[1]))
+    return cooked_time, cooked_bw

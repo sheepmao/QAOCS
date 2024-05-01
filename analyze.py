@@ -134,33 +134,41 @@ def plot_subplots(baseline_df, your_method_df):
 
 if __name__ == '__main__':
     # Read the CSV files
-    basline_csv_path = './Training_output/segue_wide_eye/trace_96.txt.csv'
-    my_method_csv_path = './Training_output/sheepmao1/Simulation_result/bigbuckbunny360p24eposide_480simulation.csv'
-    your_method_df = pd.read_csv(my_method_csv_path)
+    basline_csv_path = './Training_output/segue_wide_eye/trace_0.txt.csv'
+    my_method_csv_path = './Training_output/QAOCS/bigbuckbunny360p24eposide_0simulation.csv'
+    my_method_df = pd.read_csv(my_method_csv_path)
     baseline_df = pd.read_csv(basline_csv_path)
-    # baseline time scale is seconds, convert to milliseconds including the  buffer state, and segment progressive and rebuff
-    baseline_df['DURATION'] = baseline_df['DURATION'] * 1000
-    baseline_df['BUFFER_STATE'] = baseline_df['BUFFER_STATE'] * 1000
-    baseline_df['REBUF'] = baseline_df['REBUF'] * 1000
+    # our method time scale is milliseconds, convert to seconds
+    my_method_df['DURATION'] = my_method_df['DURATION'] / 1000
+    my_method_df['BUFFER_STATE'] = my_method_df['BUFFER_STATE'] / 1000
+    my_method_df['REBUF'] = my_method_df['REBUF'] / 1000
+
+    # baseline VMAF is normalized with scaler *(duration/4) we need to convert it to the original scale
+    baseline_df['VMAF'] = baseline_df['VMAF'] / (baseline_df['DURATION'] / 4)
+
+    # # baseline time scale is seconds, convert to milliseconds including the  buffer state, and segment progressive and rebuff
+    # baseline_df['DURATION'] = baseline_df['DURATION'] * 1000
+    # baseline_df['BUFFER_STATE'] = baseline_df['BUFFER_STATE'] * 1000
+    # baseline_df['REBUF'] = baseline_df['REBUF'] * 1000
 
     # Calculate the stall ratio for the baseline and your method, and add it to the dataframes
     baseline_df['STALL_RATIO'] = calculate_stall_ratio(baseline_df)
-    your_method_df['STALL_RATIO'] = calculate_stall_ratio(your_method_df)
+    my_method_df['STALL_RATIO'] = calculate_stall_ratio(my_method_df)
 
 
-    plot_segment_duration(baseline_df, your_method_df)
-    plot_segment_size(baseline_df, your_method_df)
-    plot_buffer_state(baseline_df, your_method_df)
-    plot_vmaf_score(baseline_df, your_method_df)
-    plot_bitrate(baseline_df, your_method_df)
-    plot_subplots(baseline_df, your_method_df)
+    plot_segment_duration(baseline_df, my_method_df)
+    plot_segment_size(baseline_df, my_method_df)
+    plot_buffer_state(baseline_df, my_method_df)
+    plot_vmaf_score(baseline_df, my_method_df)
+    plot_bitrate(baseline_df, my_method_df)
+    #plot_subplots(baseline_df, my_method_df)
 
     # Calculate average metrics for your method
-    your_method_avg_duration = your_method_df['DURATION'].mean()
-    your_method_avg_size = your_method_df['BYTES'].mean()
-    your_method_avg_buffer_state = your_method_df['BUFFER_STATE'].mean()
-    your_method_avg_vmaf = your_method_df['VMAF'].mean()
-    your_method_avg_bitrate = your_method_df['BITRATE'].mean()
+    our_method_avg_duration = my_method_df['DURATION'].mean()
+    our_method_avg_size = my_method_df['BYTES'].mean()
+    our_method_avg_buffer_state = my_method_df['BUFFER_STATE'].mean()
+    our_method_avg_vmaf = my_method_df['VMAF'].mean()
+    our_method_avg_bitrate = my_method_df['BITRATE'].mean()
 
     # Calculate average metrics for the baseline
     baseline_avg_duration = baseline_df['DURATION'].mean()
@@ -169,12 +177,12 @@ if __name__ == '__main__':
     baseline_avg_vmaf = baseline_df['VMAF'].mean()
     baseline_avg_bitrate = baseline_df['BITRATE'].mean()
 
-    print("Your Method:")
-    print("Average Duration:", your_method_avg_duration)
-    print("Average Size:", your_method_avg_size)
-    print("Average Buffer State:", your_method_avg_buffer_state)
-    print("Average VMAF Score:", your_method_avg_vmaf)
-    print("Average Bitrate:", your_method_avg_bitrate)
+    print("Our Method:")
+    print("Average Duration:", our_method_avg_duration)
+    print("Average Size:", our_method_avg_size)
+    print("Average Buffer State:", our_method_avg_buffer_state)
+    print("Average VMAF Score:", our_method_avg_vmaf)
+    print("Average Bitrate:", our_method_avg_bitrate)
 
     print("\nBaseline:")
     print("Average Duration:", baseline_avg_duration)

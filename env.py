@@ -22,13 +22,17 @@ EPS = 1e-6
 
 
 class ABREnv():
-    def __init__(self, random_seed=RANDOM_SEED, writer=None):
+    def __init__(self, random_seed=RANDOM_SEED, trace_folder=None,video_path=None,writer=None, test=False):
+        if test:
+            trace_folder = './test/' if trace_folder is None else trace_folder
+        # trace_folder = './train/' if trace_folder is None else trace_folder
+        video_path = 'bigbuckbunny360p24.mp4' if video_path is None else video_path
         np.random.seed(random_seed)
         all_cooked_time, all_cooked_bw, all_trace_file_names = load_trace.load_trace()
         self.net_env = abrenv.Environment(all_cooked_time=all_cooked_time,
                                           all_cooked_bw=all_cooked_bw,
                                           random_seed=random_seed,
-                                          video=Video('bigbuckbunny360p24.mp4', logdir='log'),
+                                          video=Video(video_path, logdir='log'),
                                           #video=Video('bigbuckbunny2160p60.mp4', logdir='log'),
                                           writer = writer
                                           )
