@@ -9,7 +9,9 @@ from skimage.feature import graycomatrix, graycoprops
 from concurrent.futures import ThreadPoolExecutor
 import matplotlib.pyplot as plt
 import PIL.Image as Image
-S_INFO = 10
+import time
+import multiprocessing
+S_INFO = 15
 S_LEN = 10  # take how many frames in the past
 A_DIM = 2
 REF_DUR = 4.0  # research shows 4 is a good value for segment duration
@@ -89,6 +91,7 @@ class Environment:
         "SEGMENT_NO"	: [],
         "DURATION":   [],
         "BYTES":   [],
+        "CRF": [],
         "QUALITY_INDEX"	:   [],
         "RESOLUTION"	:   [],
         "BITRATE"	:   [],
@@ -124,6 +127,7 @@ class Environment:
             "SEGMENT_NO"	: [],
             "DURATION":   [],
             "BYTES":   [],
+            "CRF": [],
             "QUALITY_INDEX"	:   [],
             "RESOLUTION"	:   [],
             "BITRATE"	:   [],
@@ -152,33 +156,30 @@ class Environment:
 
         # crop the video to different resolution
         ## return the video size and the video object list order by resolution low to high
-        bitrates,sizes, rescaled_videos = self.culculate_bits_multi(video_chunk, CRF, self.video_chunk_counter)
-        
+        start_time_ = time.time()
+        bitrates,sizes, rescaled_videos = self.calculate_bits_multi(video_chunk, CRF, self.video_chunk_counter)
+        end_time_ = time.time()
+        exe_time = end_time_ - start_time_
+        print(f'Video multi-res processing execuation time: {exe_time:.2f}s')
         # ABR to select which resoltion and corresponding video size
         abr = ABR.Abr()
         quality_level = abr.abr(self, bitrates)
-        self.data["QUALITY_INDEX"].append(quality_level)
 
+        # Get the selected video segment and its size in bytes
         b = sizes[quality_level]
-        self.data["RESOLUTION"].append(RESOLUTION_LIST[quality_level])
-        self.data["BITRATE"].append(bitrates[quality_level])
-        self.data["BYTES"].append(b)
-        self.data["DURATION"].append(B)
-        self.data["SEGMENT_NO"].append(self.video_chunk_counter)
-        self.data["TIME"].append(self.video_time)
-
         video_rescale_quality = rescaled_videos[quality_level]
         self.video_size.append(b)
         self.service_time.append(B)  # 服务时间/ms
-
         video_chunk_size = self.video_size[self.video_chunk_counter]
+
+
 
         # use the delivery opportunity in mahimahi
         delay = 0.0  # in ms
         video_chunk_counter_sent = 0  # in bytes
 
         while True:  # download video chunk over mahimahi
-            throughput = self.cooked_bw[self.mahimahi_ptr] * B_IN_MB / BITS_IN_BYTE  # 下载速度MB/s
+            throughput = self.cooked_bw[self.mahimahi_ptr] * B_IN_MB / BITS_IN_BYTE  # trace Mbps ->  MB/s
             duration = self.cooked_time[self.mahimahi_ptr] - self.last_mahimahi_time  # 持續時間s
 
             packet_payload = throughput * duration * PACKET_PAYLOAD_PORTION  # 在時間內能下載多少MB的packet
@@ -213,8 +214,6 @@ class Environment:
 
         # rebuffer time
         rebuf = np.maximum(delay - self.buffer_size, 0.0)
-
-        self.data["REBUF"].append(rebuf)
         # update the buffer
         self.buffer_size = np.maximum(self.buffer_size - delay, 0.0)
         # add in the new chunk
@@ -246,7 +245,8 @@ class Environment:
                     # note: trace file starts with time 0
                     self.mahimahi_ptr = 1
                     self.last_mahimahi_time = 0
-        self.data["BUFFER_STATE"].append(self.buffer_size)
+
+
         buffer_levels = self.calculate_buffer_levels()
         pst = self.calculate_stall_probability(buffer_levels)
         # the "last buffer size" return to the controller
@@ -254,24 +254,14 @@ class Environment:
         # In the new version the buffer always have at least
         # one chunk of video
         return_buffer_size = self.buffer_size
-
-        self.video_chunk_counter += 1
         # 计算vmaf分数
-        self.vmaf.append(
-            self.calculate_vmaf(video_chunk,
-                                video_rescale_quality,
-                                )
-        )
-        self.data["VMAF"].append(self.vmaf[self.video_chunk_counter])
+        vmaf = self.calculate_vmaf(video_chunk, video_rescale_quality)
+        self.vmaf.append(vmaf)
 
-        if self.video_chunk_counter == 1:
+        if self.video_chunk_counter == 0:
             last_vmaf = self.vmaf[self.video_chunk_counter]
         else:
             last_vmaf = self.vmaf[self.video_chunk_counter - 1]
-        vmaf = self.vmaf[self.video_chunk_counter]
-
-        self.video_time += B
-        video_time_remain = self.total_video_time - self.video_time
 
         ref_dur_ration = REF_DUR*1000  /B
         # Calculate the reward
@@ -279,11 +269,24 @@ class Environment:
         QoE = self.alpha * (vmaf-70) + self.beta * abs(last_vmaf - vmaf) + self.gamma * pst\
               + self.delta * np.log(bitrates[quality_level]) + self.epsilon * (1 - ref_dur_ration)
         # print the reward separately to check the value
-        print('QoE:', QoE, 'vmaf:', vmaf, 'smoothness:', abs(last_vmaf - vmaf), 'pst:', pst, 'log bitrate:', np.log(bitrates), 'ref_dur_ratio:', ref_dur_ration)
+        print(f'QoE: {QoE:.2f}, vmaf: {vmaf:.2f} smoothness: {abs(last_vmaf - vmaf):.2f}, pst: {pst:.2f}, log bitrate: {np.log(bitrates[quality_level]):.2f}, ref_dur_ratio: {ref_dur_ration:.2f}')
         #QoE = self.alpha * vmaf + self.beta * abs(last_vmaf - vmaf) + self.gamma * pst
         reward = QoE
-        self.data["REWARD"].append(reward)
 
+        ###################################################################
+        # Record the simulation data
+        self.data["REWARD"].append(reward)
+        self.data["BUFFER_STATE"].append(self.buffer_size)
+        self.data["QUALITY_INDEX"].append(quality_level)
+        self.data["RESOLUTION"].append(RESOLUTION_LIST[quality_level])
+        self.data["BITRATE"].append(bitrates[quality_level])
+        self.data["BYTES"].append(b)
+        self.data["DURATION"].append(B)
+        self.data["SEGMENT_NO"].append(self.video_chunk_counter)
+        self.data["TIME"].append(self.video_time)
+        self.data["REBUF"].append(rebuf)
+        self.data["VMAF"].append(self.vmaf[self.video_chunk_counter])
+        self.data["CRF"].append(CRF)
 
         self.writer.add_scalar('VMAF', vmaf, self.step_count)
         self.writer.add_scalar('PST', pst, self.step_count)
@@ -293,12 +296,18 @@ class Environment:
         self.writer.add_scalar('Log Bitrates', np.log(bitrates[quality_level]), self.step_count)
         self.writer.add_scalar('CRF', CRF, self.step_count)
         self.writer.add_scalar('Duration', B, self.step_count)
-        self.writer.add_scalars('QoE Factors', {'VMAF':vmaf,'PST':pst,'Video Time':self.video_time,\
+        self.writer.add_scalars('QoE Factors', {'VMAF':vmaf,'PST':pst,\
                                                'Buffer Size':self.buffer_size,
                                                'Smoothness':abs(last_vmaf-vmaf),
                                                'Log Bitrates':np.log(bitrates[quality_level])},
                                                  self.step_count)
+        # Update info for next step
+        self.video_chunk_counter += 1
+        self.video_time += B
+        video_time_remain = self.total_video_time - self.video_time
         self.step_count += 1
+
+        ###############################################
         # check whether the video is finished
         end_of_video = False
         if video_time_remain <= 500:  # remain video < 500ms -> end of video
@@ -332,32 +341,49 @@ class Environment:
         print("chunk_path",save_path)
         v = video.rescale_h264_constant_quality(save_path, CRF, 1920, 1080, 0, force=True)
         return v.load_bytes(), v
-    def culculate_bits_multi(self, video, CRF, video_chunk_counter):
+
+
+    def calculate_bits_multi(self, video, CRF, video_chunk_counter):
         Videos_dir = 'Videos_result'
         if not os.path.exists(Videos_dir):
             pmkdir(Videos_dir)
-        Video_dir = 'Videos_result/' + video.video_name().replace('_reference_video.mp4','')
+        Video_dir = 'Videos_result/' + video.video_name().replace('_reference_video.mp4', '')
         if not os.path.exists(Video_dir):
             pmkdir(Video_dir)
-        # 计算bits for different resolution
+
+        # Define the list of resolutions
         Resolution = RESOLUTION_LIST
         videos = []
         videos_sizes = []
         bitrates = []
-        # store each video chunk in a file for different resolution named by video chunk number and resolution
-        for i in range(len(Resolution)):
-            #create directories  for each resolution
-            resolution_dir = Video_dir + '/' + str(Resolution[i][0]) + 'x' + str(Resolution[i][1])
+
+        def process_resolution(resolution):
+            # Create directories for each resolution
+            resolution_dir = Video_dir + '/' + str(resolution[0]) + 'x' + str(resolution[1])
             if not os.path.exists(resolution_dir):
                 pmkdir(resolution_dir)
-            # store each video chunk in a file
-            save_path = resolution_dir + '/'+str(video_chunk_counter) + '.mp4'
-            v = video.rescale_h264_constant_quality(save_path, CRF, Resolution[i][0], Resolution[i][1], 0, force=True)
-            videos.append(v)
-            videos_sizes.append(v.load_bytes())
-            bitrates.append(v.load_bitrate())
-        return bitrates,videos_sizes, videos
 
+            # Store each video chunk in a file
+            save_path = resolution_dir + '/' + str(video_chunk_counter) + '.mp4'
+            v = video.rescale_h264_constant_quality(save_path, CRF, resolution[0], resolution[1], 0, force=True)
+            return v
+        # Check how many cpu can access
+
+        
+        # Create a thread pool with a maximum number of worker threads
+        with ThreadPoolExecutor(max_workers=multiprocessing.cpu_count()) as executor:
+            # Submit the video processing tasks to the thread pool
+            futures = [executor.submit(process_resolution, resolution) for resolution in Resolution]
+
+            # Retrieve the results from the completed futures
+            for future in futures:
+                v = future.result()
+                #print("Reso",v.load_resolution())
+                videos.append(v)
+                videos_sizes.append(v.load_bytes())
+                bitrates.append(v.load_bitrate())
+
+        return bitrates, videos_sizes, videos
     def calculate_vmaf(self, reference_video, video):
         # 根据video，CRF，计算视频segment的average vmaf
         ffqm = FfmpegQualityMetrics(reference_video.video_path(), video.video_path())
@@ -381,8 +407,7 @@ class Environment:
             # New buffer level without the restriction of not going below zero
             new_level = buffer_levels[-1] - arrival + service
             buffer_levels.append(min(new_level, BUFFER_THRESH))
-        print('video_size:', self.video_size[-1], 'arrive_time:', self.arrival_time[-1], 'service_time:',
-              self.service_time[-1], 'buffer_levels', buffer_levels[-1])
+        print(f'video_size: {self.video_size[-1]/1000:.2f}KB, arrive_time: {self.arrival_time[-1]/1000:.2f}s, service_time: {self.service_time[-1]/1000:.2f}s , buffer_levels: {buffer_levels[-1]/1000:.2f}s')
         return buffer_levels
 
     def calculate_stall_probability(self, buffer_levels):
@@ -406,13 +431,18 @@ class Environment:
                                                     else self.total_video_time / 1000
         # crop the video to the specific time range
         video_out_path = "temp_video_for_features.mp4"
+        start_time_ = time.time()
         cropped_video = self.video.crop_video(start_time, end_time, video_out_path)
-
+        end_time_ = time.time()
+        exe_time = end_time_ - start_time_
+        print(f'Cropping time for video feature: {exe_time:.2f}s')
         # Calculate the video features for the cropped video
         # dict of video features [Average SI, Average TI, Average GLCM]
+
+        start_time = time.time()
         video_features = self.process_video(video_out_path)
-
-
+        end_time = time.time()
+        print(f'Extracting time for video feature: {end_time-start_time:.2f}s')
         # Get the trace histogram as the network condition features
         histogram, edge = np.histogram(self.cooked_bw, bins=S_LEN, range=(0, np.max(self.cooked_bw)), density=True)
 
