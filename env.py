@@ -22,13 +22,18 @@ EPS = 1e-6
 
 
 class ABREnv():
-    def __init__(self, random_seed=RANDOM_SEED, writer=None):
+    def __init__(self, random_seed=RANDOM_SEED, trace_folder=None,video_path=None,writer=None, test=False):
+        if test:
+            trace_folder = './test/' if trace_folder is None else trace_folder
+        # trace_folder = './train/' if trace_folder is None else trace_folder
+        #video_path = 'bigbuckbunny360p24.mp4' if video_path is None else video_path
+        video_path = 'bigbuckbunny2160p60.mp4' if video_path is None else video_path
         np.random.seed(random_seed)
         all_cooked_time, all_cooked_bw, all_trace_file_names = load_trace.load_trace()
         self.net_env = abrenv.Environment(all_cooked_time=all_cooked_time,
                                           all_cooked_bw=all_cooked_bw,
                                           random_seed=random_seed,
-                                          video=Video('bigbuckbunny360p24.mp4', logdir='log'),
+                                          video=Video(video_path, logdir='log'),
                                           #video=Video('bigbuckbunny2160p60.mp4', logdir='log'),
                                           writer = writer
                                           )
@@ -72,7 +77,7 @@ class ABREnv():
         # this is to make the framework similar to the real
         delay, sleep_time, self.buffer_size, rebuf, \
         video_chunk_size, end_of_video, pst, vmaf, last_vmaf, reward = self.net_env.get_video_chunk(B, CRF)
-        print('duration:', B,'ms ', 'CRF:', CRF, 'video_time_now:', self.net_env.video_time / 1000, 'vmaf:', vmaf, 'pst:', pst)
+        print(f'Duration:{B/1000:.2f}s, CRF: {CRF}, Video_time_now: {self.net_env.video_time / 1000:.2f}s, Vmaf:{vmaf:.2f}, Pst: {pst:.2f}')
         # reward is video quality - smooth penalty - rebuffer penalty
 
         
@@ -95,22 +100,24 @@ class ABREnv():
 
         # Update the state with the new features
         # State shape: (S_INFO, S_LEN) -> (10,10)
-        self.state[0, -1] = delay / 1000.
-        self.state[1, -1] = self.buffer_size / BUFFER_NORM_FACTOR
-        self.state[2, -1] = float(video_chunk_size) / float(delay) / M_IN_K
+        self.state[0, -1] = delay / 1000. 
+        self.state[1, -1] = self.buffer_size / BUFFER_NORM_FACTOR # Buffer size in seconds
+        self.state[2, -1] = float(video_chunk_size) / (float(delay) / M_IN_K)  # Throughput in Kbps
         self.state[3, -1] = self.B[self.time - 1] / 1000.
         self.state[4, -1] = self.CRF[self.time - 1]
         self.state[5, -1] = avg_si
         self.state[6, -1] = avg_ti
         #print shape
-        self.state[7, -6:] = [avg_contrast, avg_dissimilarity, avg_homogeneity, avg_energy, avg_correlation, avg_ASM]
+        self.state[7:13, -1] = [avg_contrast, avg_dissimilarity, avg_homogeneity, avg_energy, avg_correlation, avg_ASM]
         #print('shape glacm',self.state[7, -6:].shape)
         #print('network_condition_histogram shape:', network_condition_histogram.shape)
-        self.state[8:, :] = network_condition_histogram
+        self.state[13:, :] = network_condition_histogram
         #print('edge shape:', edge.shape)
         #print('edge shape:', edge.reshape(-1, S_LEN).shape)
-        self.state[9, :] = edge
-
+        self.state[14, :] = edge
+        print(f'Each state component value: Delay{self.state[0, -1]:.2f}s, Buffer size: {self.state[1, -1]:.2f}, Throughput: {self.state[2, -1]/1000:.2f}KBps, B: {self.state[3, -1]:.2f}s, CRF: {self.state[4, -1]:.2f}, SI: {self.state[5, -1]:.2f}, TI: {self.state[6, -1]:.2f}')
+        print(f'GLACM: Contrast: {self.state[7, -1]:.2f}, Dissimilarity: {self.state[8, -1]:.2f}, Homogeneity: {self.state[9, -1]:.2f}, Energy: {self.state[10, -1]:.2f}, Correlation: {self.state[11, -1]:.2f}, ASM: {self.state[12, -1]:.2f}')
+        print(f'Nework_condition {self.state[13, -1]:.2f}, Edge: {self.state[14, -1]:.2f}')
         # Flatten the state array before returning it
         set_state = self.state
         # observation, reward, done, info = env.step(action)
