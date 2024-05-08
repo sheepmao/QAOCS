@@ -14,7 +14,7 @@ def train():
     has_continuous_action_space = True  # continuous action space; else discrete
 
     # max_ep_len = 100000  # max timesteps in one episode
-    max_ep_len = 300
+    max_ep_len = 500
     max_training_timesteps = int(3e6)  # break training loop if timeteps > max_training_timesteps
 
     print_freq = max_ep_len * 10  # print avg reward in the interval (in num timesteps)
@@ -64,7 +64,7 @@ def train():
 
     # tensorboard for logging
     # Create a TensorBoard summary writer
-    writer = SummaryWriter(log_dir)
+    writer = SummaryWriter()
     
     print("current logging run number for " + env_name + " : ", run_num)
     print("logging at : " + log_f_name)
@@ -177,7 +177,7 @@ def train():
 
 
         for t in range(1, max_ep_len + 1):
-            print('timestep:', t)
+            print(f'Episode: {i_episode} ,Timestep: {t}')
 
             # select action with policy
             action = ppo_agent.select_action(state)
