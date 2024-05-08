@@ -132,33 +132,37 @@ class ActorCritic(nn.Module):
         # CNN layers for processing video features (SI and TI)
         self.conv1 = nn.Conv1d(2, 32, kernel_size=3, stride=1, padding=1)
         self.conv2 = nn.Conv1d(32, 64, kernel_size=3, stride=1, padding=1)
-        self.conv_fc = nn.Linear(64 * S_LEN, 128)  # Adjust the input size of the fully connected layer
+        #self.conv_fc = nn.Linear(64 * S_LEN, 128)  # Adjust the input size of the fully connected layer
 
-        # LSTM for processing temporal features
-        self.lstm = nn.LSTM(S_LEN, 128, batch_first=True)
+        # CNN layers for processing Trace feature (Value and edges) histrogram
+        self.conv3 = nn.Conv1d(2, 32 ,kernel_size=3, stride=1, padding=1)
+        self.conv4 = nn.Conv1d(32, 64, kernel_size=3, stride=1, padding=1)
+        #self.conv_f2 = nn.Linear(64 * S_LEN, 128)  # Adjust the input size of the fully connected layer 
 
         # Fully connected layers for processing GLCM features
-        self.fc_glcm = nn.Linear(S_LEN, 64)
+        self.fc_glcm = nn.Linear(6, 64)
 
-        #(not work) CNN layers for processing network condition histogram
-        # Fully connected layers for processing network condition histogram
-        self.fc_net1 = nn.Linear(S_LEN, 64)
-        self.fc_net2 = nn.Linear(64, 128)
+        # LSTM for processing temporal features
+        self.lstm = nn.LSTM(64+64+5, 128, batch_first=True)
+        
+        # Fully connected layers for lstm output
+        self.fc_simulation = nn.Linear(128, 256)
+        self.fc_simulation2 = nn.Linear(256, 128)
 
-        # Fully connected layer for processing edge information
-        self.fc_edge = nn.Linear(S_LEN, 64)
+
+
 
         # Actor and critic networks
         self.actor = nn.Sequential(
-            nn.Linear(128 + 128 + 64 + 128 + 64, 128),
+            nn.Linear(128,64),
             nn.Tanh(),
-            nn.Linear(128, action_dim),
+            nn.Linear(64, action_dim),
             nn.Tanh()
         )
         self.critic = nn.Sequential(
-            nn.Linear(128 + 128 + 64 + 128 + 64, 128),
+            nn.Linear(128,64),
             nn.Tanh(),
-            nn.Linear(128, 1)
+            nn.Linear(64, 1)
         )
 
     def set_action_std(self, new_action_std):
@@ -172,36 +176,33 @@ class ActorCritic(nn.Module):
     def forward(self, state):
         # Reshape the state to match the expected dimensions
         state = state.view(-1, S_INFO, S_LEN)
-
+        # Process streaming simulation features using LSTM
+        simulation_ft = state[:, 0:5, :]
+        glcm_features = state[:, 7:13 ,:]
+        trace_ft = state[:, 13: ,:]
         # Process video features using CNN
-        video_features = state[:, 5:7, :] #[batch_size, 2, S_LEN]
-        print('Video feaures shape',video_features.shape)
-        x_video = torch.relu(self.conv1(video_features))
-        x_video = torch.relu(self.conv2(x_video))
-        x_video = x_video.view(x_video.size(0), -1)
-        x_video = torch.relu(self.conv_fc(x_video))
-
-        # Process temporal features using LSTM
-        temporal_features = state[:, :5, :] # #[batch_size, , S_LEN]
-        print('temporal_features shape',temporal_features.shape)
-        x_temporal, _ = self.lstm(temporal_features)
-        x_temporal = x_temporal[:, -1, :]
-
+        si_ti_features = state[:, 5:7, :] #[batch_size, 2, S_LEN]
+        #print('Video feaures shape',video_features.shape)
+        x_siti = torch.relu(self.conv1(si_ti_features))
+        x_siti = torch.relu(self.conv2(x_siti))
+        # x_siti = x_siti.view(x_siti.size(0), -1)
+        # x_siti = torch.relu(self.conv_fc(x_siti))
         # Process GLCM features using fully connected layers
-        glcm_features = state[:, 7, :]
-        print('glcm_features shape',glcm_features.shape)
         x_glcm = torch.relu(self.fc_glcm(glcm_features))
+        # Network condition feature
+        #print('Trace feaures shape',trace_ft.shape)
+        x_trace = self.conv3(trace_ft)
+        x_trace = self.conv4(x_trace)
 
-        # Process network condition histogram using fully connected layers
-        network_features = state[:, 8:-1, :].view(state.size(0), -1)
-        print('network_features shape',network_features.shape)
-        x_network = torch.relu(self.fc_net1(network_features))
-        x_network = torch.relu(self.fc_net2(x_network))
+        x_cat = torch.cat([x_siti, x_trace,simulation_ft], dim=1)
+        print('x_cat shape',x_cat.shape)
+        x_cat = x_cat.view(-1, S_LEN, 133)
+        x_lstm, _ = self.lstm(x_cat)
+        print('x_lstm shape',x_lstm[0].shape)
+        x_lstm_out= x_lstm[:,-1,:]
+        x = torch.relu(self.fc_simulation(x_lstm_out))
+        x = torch.relu(self.fc_simulation2(x))
 
-        # Process edge information using fully connected layers
-        edge_features = state[:, -1, :]
-        print('edge_features shape',edge_features.shape)
-        x_edge = torch.relu(self.fc_edge(edge_features))
 
         # Concatenate the processed features
         # print('x_video shape',x_video.shape)
@@ -209,7 +210,8 @@ class ActorCritic(nn.Module):
         # print('x_glcm shape',x_glcm.shape)
         # print('x_network shape',x_network.shape)
         # print('x_edge shape',x_edge.shape)
-        x = torch.cat([x_video, x_temporal, x_glcm, x_network, x_edge], dim=1)
+        #x = torch.cat([x_video,x_trace, x_temporal, x_glcm],dim=1)
+        #x = torch.cat([x_video,x_trace, x_temporal, x_glcm, x_network, x_edge], dim=1)
 
         return x
     def act(self, state):
