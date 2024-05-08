@@ -12,6 +12,14 @@ TRAIN_SEQ_LEN = 100  # take as a train batch
 MODEL_SAVE_INTERVAL = 100
 
 BUFFER_NORM_FACTOR = 10.0
+SI_TI_NORM_FACTOR = 100.0
+AVG_CONTRAST_NORM_FACTOR = 50.0
+AVG_DISSIMILARITY_NORM_FACTOR = 1
+AVG_HOMOGENEITY_NORM_FACTOR = 0.5
+AVG_ENERGY_NORM_FACTOR = 0.1
+AVG_CORRELATION_NORM_FACTOR = 1
+AVG_ASM_NORM_FACTOR = 0.01
+
 M_IN_K = 1000.0
 REBUF_PENALTY = 4.3  # 1 sec rebuffering -> 3 Mbps
 SMOOTH_PENALTY = 1
@@ -97,25 +105,31 @@ class ABREnv():
 
         # Shift the state array to the left to make room for the new features
         self.state = np.roll(self.state, -1, axis=1)
-
+        Throughput = video_chunk_size / (delay / M_IN_K) / 1000 * 8
         # Update the state with the new features
         # State shape: (S_INFO, S_LEN) -> (10,10)
         self.state[0, -1] = delay / 1000. 
         self.state[1, -1] = self.buffer_size / BUFFER_NORM_FACTOR # Buffer size in seconds
-        self.state[2, -1] = float(video_chunk_size) / (float(delay) / M_IN_K) / 1000 * 8 # Throughput in bps
+        self.state[2, -1] = Throughput /1000 # Throughput in kbps
         self.state[3, -1] = self.B[self.time - 1] / 1000.
         self.state[4, -1] = self.CRF[self.time - 1]
-        self.state[5, -1] = avg_si
-        self.state[6, -1] = avg_ti
+        self.state[5, -1] = avg_si / SI_TI_NORM_FACTOR
+        self.state[6, -1] = avg_ti / SI_TI_NORM_FACTOR
         #print shape
-        self.state[7:13, -1] = [avg_contrast, avg_dissimilarity, avg_homogeneity, avg_energy, avg_correlation, avg_ASM]
+        self.state[7,-1] = avg_contrast / AVG_CONTRAST_NORM_FACTOR
+        self.state[8,-1] = avg_dissimilarity / AVG_DISSIMILARITY_NORM_FACTOR
+        self.state[9,-1] = avg_homogeneity / AVG_HOMOGENEITY_NORM_FACTOR
+        self.state[10,-1] = avg_energy / AVG_ENERGY_NORM_FACTOR
+        self.state[11,-1] = avg_correlation / AVG_CORRELATION_NORM_FACTOR
+        self.state[12,-1] = avg_ASM /  AVG_ASM_NORM_FACTOR
+        #self.state[7:13, -1] = [avg_contrast, avg_dissimilarity, avg_homogeneity, avg_energy, avg_correlation, avg_ASM]
         #print('shape glacm',self.state[7, -6:].shape)
         #print('network_condition_histogram shape:', network_condition_histogram.shape)
         self.state[13:, :] = network_condition_histogram
         #print('edge shape:', edge.shape)
         #print('edge shape:', edge.reshape(-1, S_LEN).shape)
         self.state[14, :] = edge
-        print(f'Each state component value: Delay{self.state[0, -1]:.2f}s, Buffer size: {self.state[1, -1]:.2f}, Throughput: {self.state[2, -1]/1000:.2f}KBps, B: {self.state[3, -1]:.2f}s, CRF: {self.state[4, -1]:.2f}, SI: {self.state[5, -1]:.2f}, TI: {self.state[6, -1]:.2f}')
+        print(f'Each state component value: Delay{self.state[0, -1]:.2f}s, Buffer size: {self.state[1, -1]:.2f}, Throughput: {Throughput/1000:.2f}Kbps, B: {self.state[3, -1]:.2f}s, CRF: {self.state[4, -1]:.2f}, SI: {self.state[5, -1]:.2f}, TI: {self.state[6, -1]:.2f}')
         print(f'GLACM: Contrast: {self.state[7, -1]:.2f}, Dissimilarity: {self.state[8, -1]:.2f}, Homogeneity: {self.state[9, -1]:.2f}, Energy: {self.state[10, -1]:.2f}, Correlation: {self.state[11, -1]:.2f}, ASM: {self.state[12, -1]:.2f}')
         print(f'Nework_condition {self.state[13, -1]:.2f}, Edge: {self.state[14, -1]:.2f}')
         # Flatten the state array before returning it
