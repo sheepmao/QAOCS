@@ -3,51 +3,80 @@ import matplotlib.pyplot as plt
 
 
 def plot_segment_duration(baseline_df, your_method_df):
+    # Plot the segment duration for the baseline and your method in bar chart
+    # X-axis: segment number, Y-axis: segment duration
     plt.figure(figsize=(10, 6))
-    plt.plot(your_method_df['SEGMENT_NO'], your_method_df['DURATION'], label='Your Method')
-    plt.plot(baseline_df['SEGMENT_PROGRESSIVE'], baseline_df['DURATION'], label='Baseline')
+    plt.bar(your_method_df['SEGMENT_NO'], your_method_df['DURATION']/1000, label='Your Method')
+    plt.bar(baseline_df['SEGMENT_PROGRESSIVE'], baseline_df['DURATION']/1000, label='Baseline')
     plt.xlabel('Segment Number')
-    plt.ylabel('Duration (Mileseconds)')
+    plt.ylabel('Duration (seconds)')
     plt.title('Segment Duration Comparison')
     plt.legend()
     plt.savefig('segment_duration_comparison.png')
     plt.show()
 def plot_segment_size(baseline_df, your_method_df):
+    # Plot the segment size for the baseline and your method in bar chart
+    # X-axis: time in secods, Y-axis: segment size in MB, bar width is duration
+    x1=[]
+    x2=[]
+    for i in range(len(baseline_df)):
+        x1.append(sum(baseline_df.loc[0:i, 'DURATION'])/1000)
+    for i in range(len(your_method_df)):
+        x2.append(sum(your_method_df.loc[0:i, 'DURATION'])/1000)
     plt.figure(figsize=(10, 6))
-    plt.plot(your_method_df['SEGMENT_NO'], your_method_df['BYTES'], label='Your Method')
-    plt.plot(baseline_df['SEGMENT_PROGRESSIVE'], baseline_df['BYTES'], label='Baseline')
-    plt.xlabel('Segment Number')
-    plt.ylabel('Size (bytes)')
+    plt.bar(x2, your_method_df['BYTES'] / 1e6, width=your_method_df['DURATION']/1000, label='Your Method',alpha=0.7)
+    plt.bar(x1, baseline_df['BYTES'] / 1e6, width=baseline_df['DURATION']/1000, label='Baseline',alpha=0.35)
+    plt.xlabel('Time (seconds)')
+    plt.ylabel('Size (MB)')
     plt.title('Segment Size Comparison')
     plt.legend()
     plt.savefig('segment_size_comparison.png')
     plt.show()
 
 def plot_buffer_state(baseline_df, your_method_df):
+    x1=[]
+    x2=[]
+    for i in range(len(baseline_df)):
+        x1.append(sum(baseline_df.loc[0:i, 'DURATION'])/1000)
+    for i in range(len(your_method_df)):
+        x2.append(sum(your_method_df.loc[0:i, 'DURATION'])/1000)
     plt.figure(figsize=(10, 6))
-    plt.plot(your_method_df['SEGMENT_NO'], your_method_df['BUFFER_STATE'], label='Your Method')
-    plt.plot(baseline_df['SEGMENT_PROGRESSIVE'], baseline_df['BUFFER_STATE'], label='Baseline')
-    plt.xlabel('Segment Number')
+    plt.plot(x2, your_method_df['BUFFER_STATE']/1000, label='Your Method')
+    plt.plot(x1, baseline_df['BUFFER_STATE']/1000, label='Baseline')
+    plt.xlabel('Time (seconds)')
     plt.ylabel('Buffer State (seconds)')
     plt.title('Buffer State Comparison')
     plt.legend()
     plt.savefig('buffer_state_comparison.png')
     plt.show()
 def plot_vmaf_score(baseline_df, your_method_df):
+    # x-axis: segment duration, y-axis: VMAF score
+    x1=[]
+    x2=[]
+    for i in range(len(baseline_df)):
+        x1.append(sum(baseline_df.loc[0:i, 'DURATION'])/1000)
+    for i in range(len(your_method_df)):
+        x2.append(sum(your_method_df.loc[0:i, 'DURATION'])/1000)
     plt.figure(figsize=(10, 6))
-    plt.plot(your_method_df['SEGMENT_NO'], your_method_df['VMAF'], label='Your Method')
-    plt.plot(baseline_df['SEGMENT_PROGRESSIVE'], baseline_df['VMAF'], label='Baseline')
-    plt.xlabel('Segment Number')
+    plt.plot(x2, your_method_df['VMAF'], label='Your Method')
+    plt.plot(x1, baseline_df['VMAF'], label='Baseline')
+    plt.xlabel('Time (seconds)')
     plt.ylabel('VMAF Score')
     plt.title('Quality (VMAF) Comparison')
     plt.legend()
     plt.savefig('vmaf_score_comparison.png')
     plt.show()
 def plot_bitrate(baseline_df, your_method_df):
+    x1=[]
+    x2=[]
+    for i in range(len(baseline_df)):
+        x1.append(sum(baseline_df.loc[0:i, 'DURATION'])/1000)
+    for i in range(len(your_method_df)):
+        x2.append(sum(your_method_df.loc[0:i, 'DURATION'])/1000)
     plt.figure(figsize=(10, 6))
-    plt.plot(your_method_df['SEGMENT_NO'], your_method_df['BITRATE'], label='Your Method')
-    plt.plot(baseline_df['SEGMENT_PROGRESSIVE'], baseline_df['BITRATE'], label='Baseline')
-    plt.xlabel('Segment Number')
+    plt.plot(x2, your_method_df['BITRATE'], label='Your Method')
+    plt.plot(x1, baseline_df['BITRATE'], label='Baseline')
+    plt.xlabel('Time (seconds)')
     plt.ylabel('Bitrate (bps)')
     plt.title('Bitrate Comparison')
     plt.legend()
@@ -138,19 +167,13 @@ if __name__ == '__main__':
     my_method_csv_path = './Training_output/QAOCS/bigbuckbunny360p24eposide_0simulation.csv'
     my_method_df = pd.read_csv(my_method_csv_path)
     baseline_df = pd.read_csv(basline_csv_path)
-    # our method time scale is milliseconds, convert to seconds
-    my_method_df['DURATION'] = my_method_df['DURATION'] / 1000
-    my_method_df['BUFFER_STATE'] = my_method_df['BUFFER_STATE'] / 1000
-    my_method_df['REBUF'] = my_method_df['REBUF'] / 1000
+    # baseline time scale is seconds, convert to milliseconds including the  buffer state, and segment progressive and rebuff
+    baseline_df['DURATION'] = baseline_df['DURATION'] * 1000
+    baseline_df['BUFFER_STATE'] = baseline_df['BUFFER_STATE'] * 1000
+    baseline_df['REBUF'] = baseline_df['REBUF'] * 1000
 
-    # baseline VMAF is normalized with scaler *(duration/4) we need to convert it to the original scale
-    baseline_df['VMAF'] = baseline_df['VMAF'] / (baseline_df['DURATION'] / 4)
-
-    # # baseline time scale is seconds, convert to milliseconds including the  buffer state, and segment progressive and rebuff
-    # baseline_df['DURATION'] = baseline_df['DURATION'] * 1000
-    # baseline_df['BUFFER_STATE'] = baseline_df['BUFFER_STATE'] * 1000
-    # baseline_df['REBUF'] = baseline_df['REBUF'] * 1000
-
+    # baseline VMAF is normalize by Duration/4 we need to convert it to the original scale
+    baseline_df['VMAF'] = baseline_df['VMAF'] * 4 / (baseline_df['DURATION']/1000)
     # Calculate the stall ratio for the baseline and your method, and add it to the dataframes
     baseline_df['STALL_RATIO'] = calculate_stall_ratio(baseline_df)
     my_method_df['STALL_RATIO'] = calculate_stall_ratio(my_method_df)
@@ -163,6 +186,8 @@ if __name__ == '__main__':
     plot_bitrate(baseline_df, my_method_df)
     #plot_subplots(baseline_df, my_method_df)
 
+ 
+    
     # Calculate average metrics for your method
     our_method_avg_duration = my_method_df['DURATION'].mean()
     our_method_avg_size = my_method_df['BYTES'].mean()
@@ -178,15 +203,16 @@ if __name__ == '__main__':
     baseline_avg_bitrate = baseline_df['BITRATE'].mean()
 
     print("Our Method:")
-    print("Average Duration:", our_method_avg_duration)
-    print("Average Size:", our_method_avg_size)
-    print("Average Buffer State:", our_method_avg_buffer_state)
-    print("Average VMAF Score:", our_method_avg_vmaf)
-    print("Average Bitrate:", our_method_avg_bitrate)
+    print(f'Average Duration: {our_method_avg_duration/1000:.2f}s')
+    print(f'Average Size: {our_method_avg_size/1e6:.2f}MB')
+    print(f'Average Buffer State: {our_method_avg_buffer_state/1000:.2f}s')
+    print(f'Average VMAF Score:" {our_method_avg_vmaf}')
+    print(f'Average Bitrate: {our_method_avg_bitrate}bps')
 
     print("\nBaseline:")
-    print("Average Duration:", baseline_avg_duration)
-    print("Average Size:", baseline_avg_size)
-    print("Average Buffer State:", baseline_avg_buffer_state)
-    print("Average VMAF Score:", baseline_avg_vmaf)
-    print("Average Bitrate:", baseline_avg_bitrate)
+    print(f'Average Duration: {baseline_avg_duration/1000:.2f}s')
+    print(f'Average Size: {baseline_avg_size/1e6:.2f}MB')
+    print(f'Average Buffer State: {baseline_avg_buffer_state/1000:.2f}s')
+    print(f'Average VMAF Score: {baseline_avg_vmaf}')
+    print(f'Average Bitrate: {baseline_avg_bitrate}bps')
+
