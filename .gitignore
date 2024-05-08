@@ -8,10 +8,13 @@
 
 train/
 test/
+test1/
+runs/
 trace/
 baselines/
 Videos_result/
 log/
 PPO_logs/
+PPO_preTrained/
 envivio/
 __pycache__/
