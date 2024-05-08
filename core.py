@@ -95,6 +95,7 @@ class Environment:
         "QUALITY_INDEX"	:   [],
         "RESOLUTION"	:   [],
         "BITRATE"	:   [],
+        "CURRENT_THROUGHPUT" : [],
         "VMAF"	:   [],
         "REBUF"	:   [],
         "BUFFER_STATE"	:   [],
@@ -131,6 +132,7 @@ class Environment:
             "QUALITY_INDEX"	:   [],
             "RESOLUTION"	:   [],
             "BITRATE"	:   [],
+            "CURRENT_THROUGHPUT" : [],
             "VMAF"	:   [],
             "REBUF"	:   [],
             "BUFFER_STATE"	:   [],
@@ -173,7 +175,7 @@ class Environment:
         video_chunk_size = self.video_size[self.video_chunk_counter]
 
 
-
+        current_throughput = self.cooked_bw[self.mahimahi_ptr] * B_IN_MB / BITS_IN_BYTE
         # use the delivery opportunity in mahimahi
         delay = 0.0  # in ms
         video_chunk_counter_sent = 0  # in bytes
@@ -288,7 +290,8 @@ class Environment:
         self.data["REBUF"].append(rebuf)
         self.data["VMAF"].append(self.vmaf[self.video_chunk_counter])
         self.data["CRF"].append(CRF)
-
+        self.data["CURRENT_THROUGHPUT"].append(current_throughput)
+        
         self.writer.add_scalar('VMAF', vmaf, self.step_count)
         self.writer.add_scalar('PST', pst, self.step_count)
         self.writer.add_scalar('Video Time', self.video_time, self.step_count)
