@@ -14,11 +14,11 @@ def train():
     has_continuous_action_space = True  # continuous action space; else discrete
 
     # max_ep_len = 100000  # max timesteps in one episode
-    max_ep_len = 500
+    max_ep_len = 2000
     max_training_timesteps = int(3e6)  # break training loop if timeteps > max_training_timesteps
 
-    print_freq = max_ep_len * 10  # print avg reward in the interval (in num timesteps)
-    log_freq = max_ep_len * 1  # log avg reward in the interval (in num timesteps)
+    print_freq = 500  # print avg reward in the interval (in num timesteps)
+    log_freq =  500  # log avg reward in the interval (in num timesteps)
     save_model_freq = int(500)  # save model frequency (in num timesteps)
 
     action_std = 0.6  # starting std for action distribution (Multivariate Normal)
@@ -30,11 +30,11 @@ def train():
     ## Note : print/log frequencies should be > than max_ep_len
 
     ################ PPO hyperparameters ################
-    update_timestep = max_ep_len * 4  # update policy every n timesteps
+    update_timestep = 4*200  # update policy every n timesteps
     K_epochs = 80  # update policy for K epochs in one PPO update
 
     eps_clip = 0.2  # clip parameter for PPO
-    gamma = 0.99  # discount factor
+    gamma = 0.97  # discount factor
 
     lr_actor = 0.0003  # learning rate for actor network
     lr_critic = 0.001  # learning rate for critic network
@@ -87,7 +87,7 @@ def train():
 
 
     ################### checkpointing ###################
-    run_num_pretrained = 0  #### change this to prevent overwriting weights in same env_name folder
+    run_num_pretrained = 2  #### change this to prevent overwriting weights in same env_name folder
 
     directory = "PPO_preTrained"
     if not os.path.exists(directory):
@@ -159,7 +159,7 @@ def train():
     log_f.write('episode,timestep,reward\n')
 
     # printing and logging variables
-    print_running_reward = 0
+    print_running_reward = 1
     print_running_episodes = 0
 
     log_running_reward = 0
