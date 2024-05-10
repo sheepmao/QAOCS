@@ -11,8 +11,8 @@ def test(checkpoint_path):
 
     has_continuous_action_space = True  # continuous action space; else discrete
 
-    max_ep_len = 300  # max timesteps in one episode
-    test_episodes = 10  # number of episodes to test
+    max_ep_len = 500  # max timesteps in one episode
+    test_episodes = 1  # number of episodes to test
 
     random_seed = 0  # set random seed if required (0 = no random seed)
     #####################################################
@@ -90,5 +90,5 @@ def test(checkpoint_path):
 
 
 if __name__ == '__main__':
-    checkpoint_path = "PPO_preTrained/ABREnv/PPO_ABREnv_0_0.pth"  # replace with your trained model checkpoint path
+    checkpoint_path = "PPO_preTrained/ABREnv/PPO_ABREnv_0_0506.pth"  # replace with your trained model checkpoint path
     test(checkpoint_path)
