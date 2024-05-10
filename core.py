@@ -48,9 +48,9 @@ class Environment:
         np.random.seed(random_seed)
         self.alpha = 0.5  # for vmaf(0-100) - 70 (-70 to 30)
         self.beta1 = 0.2  # for positive smoothness(vmaf - last_vmaf)-> 0-100)
-        self.beta2 = -0.8  # for negative smoothness(abs(vmaf - last_vmaf)-> 0-100)
-        self.gamma = -10.0  # for stall probability(0-1)
-        self.epsilon = 0.2 # for ref_dur_ratio 
+        self.beta2 = -1  # for negative smoothness(abs(vmaf - last_vmaf)-> 0-100)
+        self.gamma = -30.0  # for stall probability(0-1)
+        self.epsilon = -1 # for ref_dur_ratio 
         self.eposide = 0
         self.step_count = 0
 
@@ -66,7 +66,7 @@ class Environment:
         self.video_time = 0
         self.arrival_time = []
         self.service_time = []
-        self.vmaf = [0.]
+        self.vmaf = [70.]
 
         # store the list of each video chunk information
         self.B_list = []
@@ -265,7 +265,8 @@ class Environment:
         else:
             last_vmaf = self.vmaf[self.video_chunk_counter - 1]
 
-        ref_dur_ration = REF_DUR*1000  /B
+        ref_dur_ration = max(REF_DUR*1000  / B,  B / (REF_DUR*1000))
+
         # Calculate the reward
         #VMAF at least 70 is better
         QoE = self.alpha * (vmaf-70) + self.beta1 * (vmaf-last_vmaf) + self.beta2 * (vmaf-last_vmaf)+ self.gamma * pst\
