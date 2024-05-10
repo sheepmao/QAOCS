@@ -3,6 +3,7 @@ import torch.nn as nn
 from torch.distributions import MultivariateNormal
 from torch.distributions import Categorical
 from core import S_INFO, S_LEN, A_DIM
+import numpy as np
 ################################## set device ##################################
 print("============================================================================================")
 # set device to cpu or cuda
@@ -46,24 +47,35 @@ class ActorCritic(nn.Module):
             self.action_var = torch.full((action_dim,), action_std_init * action_std_init).to(device)
 
         # CNN layers for processing video features (SI and TI)
-        self.conv1 = nn.Conv1d(2, 32, kernel_size=3, stride=1, padding=1)
-        self.conv2 = nn.Conv1d(32, 64, kernel_size=3, stride=1, padding=1)
+        self.conv_siti = nn.Sequential(
+            nn.Conv1d(2, 32, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.Conv1d(32, 64, kernel_size=3, stride=1, padding=1),
+            nn.ReLU()
+        )
+
         #self.conv_fc = nn.Linear(64 * S_LEN, 128)  # Adjust the input size of the fully connected layer
 
         # CNN layers for processing Trace feature (Value and edges) histrogram
-        self.conv3 = nn.Conv1d(2, 32 ,kernel_size=3, stride=1, padding=1)
-        self.conv4 = nn.Conv1d(32, 64, kernel_size=3, stride=1, padding=1)
-        #self.conv_f2 = nn.Linear(64 * S_LEN, 128)  # Adjust the input size of the fully connected layer 
+        self.conv_trace = nn.Sequential(
+            nn.Conv1d(2, 32, kernel_size=3, stride=1, padding=1),
+            nn.ReLU(),
+            nn.Conv1d(32, 64, kernel_size=3, stride=1, padding=1),
+            nn.ReLU()
+        )
 
         # Fully connected layers for processing GLCM features
-        self.fc_glcm = nn.Linear(6, 64)
+        self.fc_glcm = nn.Sequential(
+            nn.Conv1d(6, 64, kernel_size=3, stride=1, padding=1),
+            nn.ReLU()
+        )
 
         # LSTM for processing temporal features
-        self.lstm = nn.LSTM(64+64+5, 128, batch_first=True)
+        self.lstm = nn.LSTM(64+64+64+5, 128, batch_first=True)
         
-        # Fully connected layers for lstm output
-        self.fc_simulation = nn.Linear(128, 256)
-        self.fc_simulation2 = nn.Linear(256, 128)
+        # # Fully connected layers for lstm output
+        # self.fc_simulation = nn.Linear(128, 256)
+        # self.fc_simulation2 = nn.Linear(256, 128)
 
 
 
@@ -71,7 +83,7 @@ class ActorCritic(nn.Module):
         # Actor and critic networks
         self.actor = nn.Sequential(
             nn.Linear(128,64),
-            nn.Tanh(),
+            nn.ReLU(),
             nn.Linear(64, action_dim),
             nn.Tanh()
         )
@@ -92,67 +104,65 @@ class ActorCritic(nn.Module):
     def forward(self, state):
         # Reshape the state to match the expected dimensions
         state = state.view(-1, S_INFO, S_LEN)
-        # Process streaming simulation features using LSTM
+        # Process streaming simulation features 
         simulation_ft = state[:, 0:5, :]
+        si_ti_features = state[:, 5:7, :] #[batch_size, 2, S_LEN]
         glcm_features = state[:, 7:13 ,:]
         trace_ft = state[:, 13: ,:]
-        # Process video features using CNN
-        si_ti_features = state[:, 5:7, :] #[batch_size, 2, S_LEN]
-        #print('Video feaures shape',video_features.shape)
-        x_siti = torch.relu(self.conv1(si_ti_features))
-        x_siti = torch.relu(self.conv2(x_siti))
-        # x_siti = x_siti.view(x_siti.size(0), -1)
-        # x_siti = torch.relu(self.conv_fc(x_siti))
-        # Process GLCM features using fully connected layers
-        x_glcm = torch.relu(self.fc_glcm(glcm_features))
-        # Network condition feature
-        #print('Trace feaures shape',trace_ft.shape)
-        x_trace = self.conv3(trace_ft)
-        x_trace = self.conv4(x_trace)
-
-        x_cat = torch.cat([x_siti, x_trace,simulation_ft], dim=1)
-        print('x_cat shape',x_cat.shape)
-        x_cat = x_cat.view(-1, S_LEN, 133)
-        x_lstm, _ = self.lstm(x_cat)
-        print('x_lstm shape',x_lstm[0].shape)
-        x_lstm_out= x_lstm[:,-1,:]
-        x = torch.relu(self.fc_simulation(x_lstm_out))
-        x = torch.relu(self.fc_simulation2(x))
+        # print('simulation_ft shape',simulation_ft.shape)
+        # print('si_ti_features shape',si_ti_features.shape)
+        # print('glcm_features shape',glcm_features.shape)
+        # print('trace_ft shape',trace_ft.shape)
+        
+        # Process video features
+        #############
+        x_siti = self.conv_siti(si_ti_features)
+        x_glcm = self.fc_glcm(glcm_features)
+        x_trace = self.conv_trace(trace_ft)
 
 
-        # Concatenate the processed features
-        # print('x_video shape',x_video.shape)
-        # print('x_temporal shape',x_temporal.shape)
+        # Concatenate features
+        # print('x_siti shape',x_siti.shape)
         # print('x_glcm shape',x_glcm.shape)
-        # print('x_network shape',x_network.shape)
-        # print('x_edge shape',x_edge.shape)
-        #x = torch.cat([x_video,x_trace, x_temporal, x_glcm],dim=1)
-        #x = torch.cat([x_video,x_trace, x_temporal, x_glcm, x_network, x_edge], dim=1)
+        # print('x_trace shape',x_trace.shape)
 
-        return x
+        #x_cat = torch.cat([x_siti, x_trace,simulation_ft], dim=1)
+        x_cat = torch.cat([x_siti, x_glcm,x_trace,simulation_ft], dim=1)
+        print('x_cat shape',x_cat.shape)
+        x_cat = x_cat.view(-1, S_LEN, 197)
+        x_lstm, _ = self.lstm(x_cat)
+
+          # Actor and critic heads
+        actor_out = self.actor(x_lstm[:, -1, :])
+        critic_out = self.critic(x_lstm[:, -1, :])
+
+        return actor_out, critic_out
+    def init_weights(self, m):
+        if isinstance(m, nn.Linear):
+            nn.init.orthogonal_(m.weight, gain=1)
+            nn.init.constant_(m.bias, 0)
     def act(self, state):
-        processed_state = self.forward(state)
+        actor_out, critic_out  = self.forward(state)
 
         if self.has_continuous_action_space:
-            action_mean = self.actor(processed_state)
+            action_mean = actor_out
             cov_mat = torch.diag(self.action_var).unsqueeze(dim=0)
             dist = MultivariateNormal(action_mean, cov_mat)
         else:
-            action_probs = self.actor(processed_state)
+            action_probs = torch.functional.F.softmax(actor_out, dim=-1)
             dist = Categorical(action_probs)
 
         action = dist.sample()
         action_logprob = dist.log_prob(action)
-        state_val = self.critic(processed_state)
+        state_val = critic_out 
 
         return action.detach(), action_logprob.detach(), state_val.detach()
 
     def evaluate(self, state, action):
-        processed_state = self.forward(state)
+        actor_out, critic_out = self.forward(state)
 
         if self.has_continuous_action_space:
-            action_mean = self.actor(processed_state)
-
+            action_mean = actor_out
             action_var = self.action_var.expand_as(action_mean)
             cov_mat = torch.diag_embed(action_var).to(device)
             dist = MultivariateNormal(action_mean, cov_mat)
@@ -161,12 +171,12 @@ class ActorCritic(nn.Module):
             if self.action_dim == 1:
                 action = action.reshape(-1, self.action_dim)
         else:
-            action_probs = self.actor(processed_state)
+            action_probs = torch.functional.F.softmax(actor_out, dim=-1)
             dist = Categorical(action_probs)
 
         action_logprobs = dist.log_prob(action)
         dist_entropy = dist.entropy()
-        state_values = self.critic(processed_state)
+        state_values = critic_out
 
         return action_logprobs, state_values, dist_entropy
 
@@ -195,6 +205,9 @@ class PPO:
         self.policy_old.load_state_dict(self.policy.state_dict())
 
         self.MseLoss = nn.MSELoss()
+        self.H_target = 0.1
+        self._entropy_weight = np.log(action_dim)
+        self.learning_rate = lr_actor
 
     def set_action_std(self, new_action_std):
         if self.has_continuous_action_space:
@@ -270,7 +283,10 @@ class PPO:
 
         # calculate advantages
         advantages = rewards.detach() - old_state_values.detach()
-
+        
+        # Normalize the advantages
+        advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
+        advantages = advantages.double()
         # Optimize policy for K epochs
         for _ in range(self.K_epochs):
             # Evaluating old actions and values
@@ -281,19 +297,25 @@ class PPO:
 
             # Finding the ratio (pi_theta / pi_theta__old)
             ratios = torch.exp(logprobs - old_logprobs.detach())
-
+            
+  
             # Finding Surrogate Loss
             surr1 = ratios * advantages
             surr2 = torch.clamp(ratios, 1 - self.eps_clip, 1 + self.eps_clip) * advantages
-
+            ppo2loss = torch.min(surr1,surr2)
+            # Dual-clip PPO  Positive remain same , negtive clip 3.0
+            dual_loss = torch.where(advantages < 0, torch.max(ppo2loss,3 *advantages ), ppo2loss)
             # final loss of clipped objective PPO
-            loss = -torch.min(surr1, surr2) + 0.5 * self.MseLoss(state_values, rewards) - 0.01 * dist_entropy
+            loss = -dual_loss  + 5 * self.MseLoss(state_values, rewards) - self._entropy_weight * dist_entropy
 
             # take gradient step
             self.optimizer.zero_grad()
             loss.mean().backward()
             self.optimizer.step()
-
+        _H = (-torch.log(old_logprobs) * old_logprobs).mean().item()
+        _g = _H - self.H_target
+        self._entropy_weight -= self.learning_rate * _g * 0.1 * self.K_epochs
+        self._entropy_weight = max(0.01, self._entropy_weight)
         # Copy new weights into old policy
         self.policy_old.load_state_dict(self.policy.state_dict())
 
