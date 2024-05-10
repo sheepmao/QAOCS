@@ -105,14 +105,14 @@ class ABREnv():
 
         # Shift the state array to the left to make room for the new features
         self.state = np.roll(self.state, -1, axis=1)
-        Throughput = video_chunk_size / (delay / M_IN_K) / 1000 * 8
+        Throughput = video_chunk_size* 8 / 1000 / (delay / M_IN_K) 
         # Update the state with the new features
         # State shape: (S_INFO, S_LEN) -> (10,10)
-        self.state[0, -1] = delay / 1000. 
+        self.state[0, -1] = delay / 1000.  # download time in seconds 
         self.state[1, -1] = self.buffer_size / BUFFER_NORM_FACTOR # Buffer size in seconds
         self.state[2, -1] = Throughput /1000 # Throughput in kbps
         self.state[3, -1] = self.B[self.time - 1] / 1000.
-        self.state[4, -1] = self.CRF[self.time - 1]
+        self.state[4, -1] = self.CRF[self.time - 1] /51 # chunk CRF normalized
         self.state[5, -1] = avg_si / SI_TI_NORM_FACTOR
         self.state[6, -1] = avg_ti / SI_TI_NORM_FACTOR
         #print shape
