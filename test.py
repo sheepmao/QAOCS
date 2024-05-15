@@ -4,6 +4,7 @@ import numpy as np
 from env import ABREnv
 from PPO import PPO
 from core import S_INFO, S_LEN, A_DIM
+import time
 from torch.utils.tensorboard import SummaryWriter
 def test(checkpoint_path):
     ####### initialize environment hyperparameters ######
@@ -18,6 +19,7 @@ def test(checkpoint_path):
     #####################################################
     test_trace_folder = './test/'
     video_path = 'bigbuckbunny360p24.mp4'
+    #video_path = 'bigbuckbunny2160p60.mp4'
     random_seed = 0
     writer = SummaryWriter()
     #####################################################
@@ -65,9 +67,10 @@ def test(checkpoint_path):
         ep_reward = 0
         state = env.reset()
         state = state.flatten()
-
+        test_time_start = time.time()
         for t in range(1, max_ep_len + 1):
             # select action with policy
+            print(f'Timestep: {t}')
             action = ppo_agent.select_action(state)
             state, reward, done, _ = env.step(action)
             state = state.flatten()
@@ -77,9 +80,11 @@ def test(checkpoint_path):
                 break
 
         # clear buffer
+        test_time_end = time.time()
         ppo_agent.buffer.clear()
         test_running_reward += ep_reward
         print('Episode: {} \t\t Reward: {}'.format(ep, round(ep_reward, 2)))
+        print(f'Test Time: {test_time_end - test_time_start:.2f}s')
         ep_reward = 0
 
     env.close()
@@ -90,5 +95,5 @@ def test(checkpoint_path):
 
 
 if __name__ == '__main__':
-    checkpoint_path = "PPO_preTrained/ABREnv/PPO_ABREnv_0_0506.pth"  # replace with your trained model checkpoint path
+    checkpoint_path = "PPO_preTrained/ABREnv/PPO_ABREnv_0_2.pth"  # replace with your trained model checkpoint path
     test(checkpoint_path)

@@ -128,7 +128,7 @@ class ActorCritic(nn.Module):
 
         #x_cat = torch.cat([x_siti, x_trace,simulation_ft], dim=1)
         x_cat = torch.cat([x_siti, x_glcm,x_trace,simulation_ft], dim=1)
-        print('x_cat shape',x_cat.shape)
+        #print('x_cat shape',x_cat.shape)
         x_cat = x_cat.view(-1, S_LEN, 197)
         x_lstm, _ = self.lstm(x_cat)
 

@@ -5,6 +5,7 @@ import numpy as np
 from env import ABREnv
 from PPO import PPO
 from core import S_INFO, S_LEN, A_DIM
+import time
 from torch.utils.tensorboard import SummaryWriter
 ################################### Training ###################################
 def train():
@@ -175,7 +176,7 @@ def train():
         state = state.flatten()
         current_ep_reward = 0
 
-
+        ep_start = time.time()
         for t in range(1, max_ep_len + 1):
             print(f'Episode: {i_episode} ,Timestep: {t}')
 
@@ -238,6 +239,8 @@ def train():
             # break; if the episode is over
             if done:
                 break
+        ep_end = time.time()
+        print(f'Episode{i_episode} take Time: {ep_end - ep_start:.2f}s')
         writer.add_scalar('Current Episode Reward', current_ep_reward, i_episode)
         print_running_reward += current_ep_reward
         print_running_episodes += 1
