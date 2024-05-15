@@ -164,7 +164,7 @@ def plot_subplots(baseline_df, your_method_df):
 if __name__ == '__main__':
     # Read the CSV files
     basline_csv_path = './Training_output/segue_wide_eye/trace_0.txt.csv'
-    my_method_csv_path = './Training_output/QAOCS/bigbuckbunny360p24eposide_0simulation.csv'
+    my_method_csv_path = './Training_output/QAOCS/bigbuckbunny360p24trace_0.txt_test_simulation.csv'
     my_method_df = pd.read_csv(my_method_csv_path)
     baseline_df = pd.read_csv(basline_csv_path)
     # baseline time scale is seconds, convert to milliseconds including the  buffer state, and segment progressive and rebuff

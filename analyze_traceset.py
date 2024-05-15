@@ -105,16 +105,33 @@ axs[0, 0].grid(True)
 axs[0, 0].invert_xaxis()
 
 # Plot (b) VMAF vs. VMAF Change
-for algo, vmaf_values in vmaf_vs_vmaf_change.items():
-    axs[0, 1].errorbar(quality_smoothness, vmaf_values, yerr=vmaf_vs_vmaf_change_err[algo], marker='o', capsize=4, label=algo)
+# for algo, vmaf_values in vmaf_vs_vmaf_change.items():
+#     axs[0, 1].errorbar(quality_smoothness, vmaf_values, yerr=vmaf_vs_vmaf_change_err[algo], marker='o', capsize=4, label=algo)
+
+markers = ['o', 's', 'D', '^', 'v', '>', '<', 'p']
+for name, marker in zip(stall_ratio.keys(), markers):
+    x = stall_ratio[name]
+    y = vmaf_scores[name]
+    x_err = stall_ratio_errors[name]
+    y_err = vmaf_errors[name]
+    axs[0,1].errorbar(x, y, xerr=x_err, yerr=y_err, label=name, marker=marker, capsize=5)
+
 axs[0, 1].set_xlabel('Quality Smoothness (VMAF)')
 axs[0, 1].set_ylabel('Video Quality (VMAF)')
 axs[0, 1].set_title('(b) VMAF vs. VMAF Change')
 axs[0, 1].legend()
 
 # Plot (c) QoE_DNN vs. Buffer
-for algo, qoe_values in qoe_dnn_vs_buffer.items():
-    axs[1, 0].errorbar(buffer_sizes, qoe_values, yerr=qoe_dnn_vs_buffer_err[algo], marker='o', capsize=4, label=algo)
+# for algo, qoe_values in qoe_dnn_vs_buffer.items():
+#     axs[1, 0].errorbar(buffer_sizes, qoe_values, yerr=qoe_dnn_vs_buffer_err[algo], marker='o', capsize=4, label=algo)
+
+markers = ['o', 's', 'D', '^', 'v', '>', '<', 'p']
+for name, marker in zip(stall_ratio.keys(), markers):
+    x = stall_ratio[name]
+    y = vmaf_scores[name]
+    x_err = stall_ratio_errors[name]
+    y_err = vmaf_errors[name]
+    axs[1,0].errorbar(x, y, xerr=x_err, yerr=y_err, label=name, marker=marker, capsize=5)
 axs[1, 0].set_xlabel('Buffer (s)')
 axs[1, 0].set_ylabel('QoE')
 axs[1, 0].set_title('(c) QoE_DNN vs. Buffer')

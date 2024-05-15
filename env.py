@@ -31,19 +31,23 @@ EPS = 1e-6
 
 class ABREnv():
     def __init__(self, random_seed=RANDOM_SEED, trace_folder=None,video_path=None,writer=None, test=False):
-        if test:
-            trace_folder = './test/' if trace_folder is None else trace_folder
-        # trace_folder = './train/' if trace_folder is None else trace_folder
-        video_path = 'bigbuckbunny360p24.mp4' if video_path is None else video_path
+
+        #video_path = 'bigbuckbunny360p24.mp4' if video_path is None else video_path
+        video_path = 'bigbuckbunny1080p30.mp4' 
         #video_path = 'bigbuckbunny2160p60.mp4' if video_path is None else video_path
         np.random.seed(random_seed)
-        all_cooked_time, all_cooked_bw, all_trace_file_names = load_trace.load_trace()
+        if test:
+            all_cooked_time, all_cooked_bw,all_trace_file_names = load_trace.load_trace(trace_folder)
+        else:
+            all_cooked_time, all_cooked_bw, all_trace_file_names = load_trace.load_trace()
         self.net_env = abrenv.Environment(all_cooked_time=all_cooked_time,
                                           all_cooked_bw=all_cooked_bw,
+                                          all_trace_file_names=all_trace_file_names,
                                           random_seed=random_seed,
                                           video=Video(video_path, logdir='log'),
                                           #video=Video('bigbuckbunny2160p60.mp4', logdir='log'),
-                                          writer = writer
+                                          writer = writer,
+                                          test=test
                                           )
 
         self.last_bit_rate = DEFAULT_QUALITY

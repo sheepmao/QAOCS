@@ -41,7 +41,7 @@ def pmkdir(kdir):
 
 
 class Environment:
-    def __init__(self, all_cooked_time, all_cooked_bw, video, random_seed=RANDOM_SEED,writer=None):
+    def __init__(self, all_cooked_time, all_cooked_bw, all_trace_file_names,video, random_seed=RANDOM_SEED,writer=None,test=False):
         assert len(all_cooked_time) == len(all_cooked_bw) , "Mismatched cooked time and bandwidth arrays"
         self.writer = writer
 
@@ -53,10 +53,11 @@ class Environment:
         self.epsilon = -1 # for ref_dur_ratio 
         self.eposide = 0
         self.step_count = 0
-
+        self.test = test
 
         self.all_cooked_time = all_cooked_time
         self.all_cooked_bw = all_cooked_bw
+        self.all_trace_file_names = all_trace_file_names
         self.video = video
         self.total_video_time = video.load_duration() * MILLISECONDS_IN_SECOND
         self.fps = video.load_fps()
@@ -77,6 +78,7 @@ class Environment:
         self.trace_idx = np.random.randint(len(self.all_cooked_time)) # random select a trace file
         self.cooked_time = self.all_cooked_time[self.trace_idx]  # Time
         self.cooked_bw = self.all_cooked_bw[self.trace_idx]  # Bandwidth
+        self.cooked_file_names = all_trace_file_names[self.trace_idx]  # Trace file name
 
         # randomize the start point of the trace
         # note: trace file starts with time 0
@@ -117,6 +119,7 @@ class Environment:
             self.trace_idx = np.random.randint(len(self.all_cooked_time))
             self.cooked_time = self.all_cooked_time[self.trace_idx]
             self.cooked_bw = self.all_cooked_bw[self.trace_idx]
+            self.cooked_file_names = self.all_trace_file_names[self.trace_idx]
 
             # randomize the start point of the video
             # note: trace file starts with time 0
@@ -269,8 +272,13 @@ class Environment:
 
         # Calculate the reward
         #VMAF at least 70 is better
-        QoE = self.alpha * (vmaf-70) + self.beta1 * (vmaf-last_vmaf) + self.beta2 * (vmaf-last_vmaf)+ self.gamma * pst\
-             + self.epsilon * (1 - ref_dur_ration)
+        # if current vmaf - last vmaf is negative then beta2 is used, else beta1 is used
+        Quality_score = self.alpha * (vmaf-70)
+        Smoothness_score = self.beta1 * (vmaf-last_vmaf) if (vmaf-last_vmaf) > 0 else self.beta2*(vmaf-last_vmaf)
+        Stall_score = self.gamma * pst
+        Length_score = self.epsilon * (1 - ref_dur_ration)
+
+        QoE = Quality_score + Smoothness_score + Stall_score + Length_score
         # print the reward separately to check the value
         print(f'QoE contribution, QoE: {QoE:.2f}, vmaf : {self.alpha * (vmaf-70):.2f} smoothness: {self.beta1 * (vmaf-last_vmaf) + self.beta2:.2f} \
              , pst: {self.gamma * pst:.2f}, ref_dur_ratio: {self.epsilon * (1 - ref_dur_ration):.2f}')
@@ -322,6 +330,9 @@ class Environment:
             #trace_name = 'trace_' + str(self.trace_idx)
             csv_file_save_path = 'Videos_result/' + self.video.video_name().split('.mp4')[0] \
                 + 'eposide_'+str(self.eposide) +'simulation.csv'
+            if self.test:
+                csv_file_save_path = 'Test_result/' + self.video.video_name().split('.mp4')[0] \
+                + self.cooked_file_names +'_test_simulation.csv'
             self.eposide += 1
             data_frame = pd.DataFrame(self.data)
             data_frame.to_csv(csv_file_save_path, index=False)
@@ -432,8 +443,8 @@ class Environment:
         # Get the features for the next video chunk period
         start_time = self.video_time / 1000
         # Get the features for the next 10s, if exceed then get till end of video
-        end_time = (self.video_time + 10000) / 1000 if self.video_time + 10000 < self.total_video_time \
-                                                    else self.total_video_time / 1000
+        end_time = min((self.video_time + 10000) / 1000, self.total_video_time / 1000)
+        
         # crop the video to the specific time range
         video_out_path = "temp_video_for_features.mp4"
         start_time_ = time.time()
