@@ -83,83 +83,54 @@ def plot_bitrate(baseline_df, your_method_df):
     plt.savefig('bitrate_comparison.png')
     plt.show()
 
-def calculate_stall_ratio(data):
-    # Calculate the stall ratio
-    # stall event count = where rebuf > 0
-    stall_event_count = sum(data['REBUF'] > 0)
-    # stall ration = stall event count / total number of segments
-    stall_ratio = stall_event_count / len(data)
-    return stall_ratio
-
-
-def plot_subplots(baseline_df, your_method_df):
-
-    # Create subplots
-    fig, axs = plt.subplots(2, 2, figsize=(12, 8))
-    # vmaf vs stall ratio from the baseline and your method
-    vmaf_vs_stall = {
-        'Baseline': [(x, y) for x, y in zip(baseline_df['VMAF'], baseline_df['STALL_RATIO'])],
-        'Your Method': [(x, y) for x, y in zip(your_method_df['VMAF'], your_method_df['STALL_RATIO'])]
-    }
-    vmaf_vs_vmaf_change = {
-        'Baseline': [(x, y) for x, y in zip(baseline_df['VMAF'], baseline_df['VMAF_CHANGE'])],
-        'Your Method': [(x, y) for x, y in zip(your_method_df['VMAF'], your_method_df['VMAF_CHANGE'])]
-    }
-    qoe_dnn_vs_buffer = {
-        'Baseline': [(x, y) for x, y in zip(baseline_df['REWARD'], baseline_df['BUFFER_STATE'])],
-        'Your Method': [(x, y) for x, y in zip(your_method_df['REWARD'], your_method_df['BUFFER_STATE'])]
-    }
-    qoe_dnn_values = sorted(list(set(baseline_df['REWARD'] + your_method_df['REWARD'])))
-    cdf_qoe_dnn = {
-        'Baseline': [sum(baseline_df['REWARD'] <= x) / len(baseline_df) for x in qoe_dnn_values],
-        'Your Method': [sum(your_method_df['REWARD'] <= x) / len(your_method_df) for x in qoe_dnn_values]
-    }
-    # calculate the stall ratio and buffer state from data
-    stall_ratio = list(set(baseline_df['STALL_RATIO']))
-    buffer_sizes = list(set(baseline_df['BUFFER_STATE']))
-    # Plot (a) VMAF vs. Stall Ratio
-    for algo, vmaf_values in vmaf_vs_stall.items():
-        axs[0, 0].plot([x[0] for x in vmaf_values], [y for y in stall_ratio], marker='o', label=algo)
-        axs[0, 0].boxplot([x[1]-x[0] for x in vmaf_values], positions=stall_ratio, widths=0.1, vert=False, sym='')
-    axs[0, 0].set_xlabel('Video Quality (VMAF)')
-    axs[0, 0].set_ylabel('Time Spent on Stall (%)')
-    axs[0, 0].set_title('(a) VMAF vs. Stall Ratio')
-    axs[0, 0].legend()
-
-    # # Plot (b) VMAF vs. VMAF Change
-    # for algo, vmaf_values in vmaf_vs_vmaf_change.items():
-    #     axs[0, 1].plot([x[0] for x in vmaf_values], quality_smoothness, marker='o', label=algo)
-    #     axs[0, 1].boxplot([x[1]-x[0] for x in vmaf_values], positions=quality_smoothness, widths=0.5, vert=True, sym='')
-    # axs[0, 1].set_xlabel('Video Quality (VMAF)')
-    # axs[0, 1].set_ylabel('Quality Smoothness (VMAF)')
-    # axs[0, 1].set_title('(b) VMAF vs. VMAF Change')
-    # axs[0, 1].legend()
-
-    # Plot (c) QoE_DNN vs. Buffer
-    for algo, qoe_values in qoe_dnn_vs_buffer.items():
-        axs[1, 0].plot([x[0] for x in qoe_values], buffer_sizes, marker='o', label=algo)
-        axs[1, 0].boxplot([x[1]-x[0] for x in qoe_values], positions=buffer_sizes, widths=1, vert=True, sym='')
-    axs[1, 0].set_xlabel('QoE')
-    axs[1, 0].set_ylabel('Buffer (s)')
-    axs[1, 0].set_title('(c) QoE_DNN vs. Buffer')
-    axs[1, 0].legend()
-
-    # Plot (d) CDF of QoE_DNN
-    for algo, cdf_values in cdf_qoe_dnn.items():
-        axs[1, 1].plot(qoe_dnn_values, cdf_values, label=algo)
-    axs[1, 1].set_xlabel('QoE')
-    axs[1, 1].set_ylabel('CDF')
-    axs[1, 1].set_title('(d) CDF of QoE_DNN')
-    axs[1, 1].legend()
-
-    # Adjust spacing between subplots
+def plot_size_boxplot(baseline_df, your_method_df):
+    # Plot the size of the segments for the baseline and your method in a box plot in 5-95 percentile
+    # X-axis: method, Y-axis: segment size in MB
+    plt.figure(figsize=(10, 6))
+    
+    # Define colors for each box
+    colors = ['#EB5E55', '#8F4899']  # Red and purple colors
+    hatch_patterns = ['', '////']  # No hatch for 'Constant', hatch pattern for 'Time'
+    
+    bp = plt.boxplot([baseline_df['BYTES'] / 1e6, your_method_df['BYTES'] / 1e6],
+                     labels=['Baseline', 'Your Method'],
+                     whis=[5, 95],
+                     patch_artist=True,
+                     boxprops=dict(facecolor='white', edgecolor='black'),
+                     widths=0.6)
+    
+    # Set colors and hatch patterns for each box
+    for box, color, hatch in zip(bp['boxes'], colors, hatch_patterns):
+        box.set(facecolor=color, hatch=hatch)
+    
+    # Set colors for whiskers and outliers
+    for whisker in bp['whiskers']:
+        whisker.set(color='black')
+    
+    for cap in bp['caps']:
+        cap.set(color='black')
+    
+    for median in bp['medians']:
+        median.set(color='black')
+    
+    for flier in bp['fliers']:
+        flier.set(marker='o', color='black', alpha=0.5)
+    
+    plt.ylabel('Segment bytes, MB')
+    plt.title('Segment Size Comparison (5-95 Percentile)')
     plt.tight_layout()
-
-    # Save the plot
-    plt.savefig('subplots.png')
-    # Display the plot
+    plt.savefig('size_boxplot.png', dpi=300)
     plt.show()
-
+def plot_total_size(baseline_df, your_method_df):
+    # Plot the total size of the video streamed for the baseline and your method
+    # X-axis: method, Y-axis: total size in MB
+    plt.figure(figsize=(10, 6))
+    # set bar in different color
+    plt.bar(['Baseline', 'Your Method'], [baseline_df['BYTES'].sum() / 1e6, your_method_df['BYTES'].sum() / 1e6], color=['#EB5E55', '#8F4899'], width=0.5)
+    plt.ylabel('Total Size (MB)')
+    plt.title('Total Size Comparison')
+    plt.savefig('total_size_comparison.png')
+    plt.show()
 
 if __name__ == '__main__':
     # Read the CSV files
@@ -174,9 +145,7 @@ if __name__ == '__main__':
 
     # baseline VMAF is normalize by Duration/4 we need to convert it to the original scale
     baseline_df['VMAF'] = baseline_df['VMAF'] * 4 / (baseline_df['DURATION']/1000)
-    # Calculate the stall ratio for the baseline and your method, and add it to the dataframes
-    baseline_df['STALL_RATIO'] = calculate_stall_ratio(baseline_df)
-    my_method_df['STALL_RATIO'] = calculate_stall_ratio(my_method_df)
+
 
 
     plot_segment_duration(baseline_df, my_method_df)
@@ -184,6 +153,8 @@ if __name__ == '__main__':
     plot_buffer_state(baseline_df, my_method_df)
     plot_vmaf_score(baseline_df, my_method_df)
     plot_bitrate(baseline_df, my_method_df)
+    plot_size_boxplot(baseline_df, my_method_df)
+    plot_total_size(baseline_df, my_method_df)
     #plot_subplots(baseline_df, my_method_df)
 
  
@@ -194,6 +165,7 @@ if __name__ == '__main__':
     our_method_avg_buffer_state = my_method_df['BUFFER_STATE'].mean()
     our_method_avg_vmaf = my_method_df['VMAF'].mean()
     our_method_avg_bitrate = my_method_df['BITRATE'].mean()
+    our_method_total_size = my_method_df['BYTES'].sum()
 
     # Calculate average metrics for the baseline
     baseline_avg_duration = baseline_df['DURATION'].mean()
@@ -201,6 +173,7 @@ if __name__ == '__main__':
     baseline_avg_buffer_state = baseline_df['BUFFER_STATE'].mean()
     baseline_avg_vmaf = baseline_df['VMAF'].mean()
     baseline_avg_bitrate = baseline_df['BITRATE'].mean()
+    baseline_avg_duration = baseline_df['DURATION'].mean()
 
     print("Our Method:")
     print(f'Average Duration: {our_method_avg_duration/1000:.2f}s')
@@ -208,6 +181,7 @@ if __name__ == '__main__':
     print(f'Average Buffer State: {our_method_avg_buffer_state/1000:.2f}s')
     print(f'Average VMAF Score:" {our_method_avg_vmaf}')
     print(f'Average Bitrate: {our_method_avg_bitrate}bps')
+    print(f'Total Size: {our_method_total_size/1e6:.2f}MB')
 
     print("\nBaseline:")
     print(f'Average Duration: {baseline_avg_duration/1000:.2f}s')
@@ -215,4 +189,5 @@ if __name__ == '__main__':
     print(f'Average Buffer State: {baseline_avg_buffer_state/1000:.2f}s')
     print(f'Average VMAF Score: {baseline_avg_vmaf}')
     print(f'Average Bitrate: {baseline_avg_bitrate}bps')
+    print(f'Total Size: {baseline_df["BYTES"].sum()/1e6:.2f}MB')
 
