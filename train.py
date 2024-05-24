@@ -206,14 +206,15 @@ def train():
             # log in logging file
             if time_step % log_freq == 0:
                 # log average reward till last episode
-                log_avg_reward = log_running_reward / log_running_episodes
-                log_avg_reward = round(log_avg_reward, 4)
+                if log_running_episodes > 0:
+                    log_avg_reward = log_running_reward / log_running_episodes
+                    log_avg_reward = round(log_avg_reward, 4)
 
-                log_f.write('{},{},{}\n'.format(i_episode, time_step, log_avg_reward))
-                log_f.flush()
+                    log_f.write('{},{},{}\n'.format(i_episode, time_step, log_avg_reward))
+                    log_f.flush()
 
-                log_running_reward = 0
-                log_running_episodes = 0
+                    log_running_reward = 0
+                    log_running_episodes = 0
 
             # printing average reward
             if time_step % print_freq == 0:

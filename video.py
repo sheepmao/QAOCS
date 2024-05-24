@@ -327,6 +327,9 @@ class Video:
     def crop_video(self, start_time, end_time, video_out_path):
         # 获取视频的帧率
         vid = VideoFileClip(self._video_path)
+            # Add a small tolerance value to handle slight duration mismatches
+        tolerance = 0.1
+        end_time = min(end_time, vid.duration - tolerance)
         try:
             video_clip = vid.subclip(start_time, end_time)
         except:

@@ -280,8 +280,8 @@ class Environment:
 
         QoE = Quality_score + Smoothness_score + Stall_score + Length_score
         # print the reward separately to check the value
-        print(f'QoE contribution, QoE: {QoE:.2f}, vmaf : {self.alpha * (vmaf-70):.2f} smoothness: {self.beta1 * (vmaf-last_vmaf) + self.beta2:.2f} \
-             , pst: {self.gamma * pst:.2f}, ref_dur_ratio: {self.epsilon * (1 - ref_dur_ration):.2f}')
+        print(f'QoE contribution, QoE: {QoE:.2f}, vmaf : {Quality_score:.2f} smoothness: {Smoothness_score:.2f} \
+             , pst: {Stall_score:.2f}, ref_dur_ratio: {Length_score:.2f}')
         #QoE = self.alpha * vmaf + self.beta * abs(last_vmaf - vmaf) + self.gamma * pst
         reward = QoE
 
