@@ -157,21 +157,24 @@ def plot_cdf(data, ax, label, linestyle):
     yvals = np.arange(len(sorted_data)) / float(len(sorted_data) - 1)
     ax.plot(sorted_data, yvals, label=label, linestyle=linestyle)
 
-# Plotting
-linestyles = ['--', '-', ':', '-.', '--', '-']
-colors = ['green', 'blue', 'black', 'magenta', 'cyan', 'red']
 
-for (alg, vals), ls, color in zip(data.items(), linestyles, colors):
-    plot_cdf(vals, axs[1,1], alg, ls)
-axs[1, 1].set_xlabel('QoE')
-axs[1, 1].set_ylabel('CDF')
-axs[1, 1].set_title('(d) CDF of QoE_DNN')
-axs[1, 1].legend()
+if __name__ == '__main__':
+    save_path = 'Figures/'
+    # Plotting
+    linestyles = ['--', '-', ':', '-.', '--', '-']
+    colors = ['green', 'blue', 'black', 'magenta', 'cyan', 'red']
 
-# Adjust spacing between subplots
-plt.tight_layout()
-# Save the plot as an image
-plt.savefig('analyze_traceset.png')
+    for (alg, vals), ls, color in zip(data.items(), linestyles, colors):
+        plot_cdf(vals, axs[1,1], alg, ls)
+    axs[1, 1].set_xlabel('QoE')
+    axs[1, 1].set_ylabel('CDF')
+    axs[1, 1].set_title('(d) CDF of QoE_DNN')
+    axs[1, 1].legend()
 
-# Display the plot
-plt.show()
+    # Adjust spacing between subplots
+    plt.tight_layout()
+    # Save the plot as an image
+    plt.savefig(save_path+'analyze_traceset.png')
+
+    # Display the plot
+    plt.show()
