@@ -6,8 +6,6 @@
 *.DS_Store
 # ignore all files in the following directories
 
-train/
-test/
 test1/
 runs/
 trace/
