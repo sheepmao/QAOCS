@@ -47,7 +47,7 @@ class Environment:
 
         np.random.seed(random_seed)
         self.alpha = 0.5  # for vmaf(0-100) - 70 (-70 to 30)
-        self.beta1 = 0.2  # for positive smoothness(vmaf - last_vmaf)-> 0-100)
+        self.beta1 = 0.1  # for positive smoothness(vmaf - last_vmaf)-> 0-100)
         self.beta2 = -1  # for negative smoothness(abs(vmaf - last_vmaf)-> 0-100)
         self.gamma = -30.0  # for stall probability(0-1)
         self.epsilon = -1 # for ref_dur_ratio 
@@ -143,6 +143,12 @@ class Environment:
             "REWARD": []
             }
     def get_video_chunk(self, B, CRF):
+        Videos_dir = 'Videos_result'
+        if not os.path.exists(Videos_dir):
+            pmkdir(Videos_dir)
+        Video_dir = 'Videos_result/' + self.video.video_name().replace('.mp4','')+'/'
+        if not os.path.exists(Video_dir):
+            pmkdir(Video_dir)
 
         assert CRF >= 0
         assert CRF <= CRF_LEVELS, print('wrong set CRF as: ', CRF)
@@ -152,7 +158,10 @@ class Environment:
                                                 else self.total_video_time / 1000
         # Crop the video to the specific time range obtained from the agent decision and current video time
         #save_path = self.video.video_name().split('.mp4')[0] +str(self.video_chunk_counter)+'_reference_video.mp4'
-        save_path = self.video.video_name().split('.mp4')[0] + '_reference_video.mp4'
+        #save_path = self.video.video_name().split('.mp4')[0] + '_reference_video.mp4'
+        raw_dir = Video_dir + 'raw'
+        pmkdir(raw_dir)
+        save_path = raw_dir + '/'+str(self.video_chunk_counter) + '_reference_video.mp4'
         video_chunk = self.video.crop_video(start_time, end_time, save_path)
         # Rescale the video to the specific quality level obtained from the agent decision
         # Get the corresponding video size and record the segment duration
@@ -162,7 +171,7 @@ class Environment:
         # crop the video to different resolution
         ## return the video size and the video object list order by resolution low to high
         start_time_ = time.time()
-        bitrates,sizes, rescaled_videos = self.calculate_bits_multi(video_chunk, CRF, self.video_chunk_counter)
+        bitrates,sizes, rescaled_videos = self.calculate_bits_multi(video_chunk, CRF, self.video_chunk_counter,video_dir = Video_dir)
         end_time_ = time.time()
         exe_time = end_time_ - start_time_
         print(f'Video multi-res processing execuation time: {exe_time:.2f}s')
@@ -276,12 +285,12 @@ class Environment:
         Quality_score = self.alpha * (vmaf-70)
         Smoothness_score = self.beta1 * (vmaf-last_vmaf) if (vmaf-last_vmaf) > 0 else self.beta2*(vmaf-last_vmaf)
         Stall_score = self.gamma * pst
-        Length_score = self.epsilon * (1 - ref_dur_ration)
+        # Length_score = self.epsilon * (1 - ref_dur_ration)
 
-        QoE = Quality_score + Smoothness_score + Stall_score + Length_score
+        QoE = Quality_score + Smoothness_score + Stall_score 
         # print the reward separately to check the value
         print(f'QoE contribution, QoE: {QoE:.2f}, vmaf : {Quality_score:.2f} smoothness: {Smoothness_score:.2f} \
-             , pst: {Stall_score:.2f}, ref_dur_ratio: {Length_score:.2f}')
+             , pst: {Stall_score:.2f}')
         #QoE = self.alpha * vmaf + self.beta * abs(last_vmaf - vmaf) + self.gamma * pst
         reward = QoE
 
@@ -359,13 +368,8 @@ class Environment:
         return v.load_bytes(), v
 
 
-    def calculate_bits_multi(self, video, CRF, video_chunk_counter):
-        Videos_dir = 'Videos_result'
-        if not os.path.exists(Videos_dir):
-            pmkdir(Videos_dir)
-        Video_dir = 'Videos_result/' + video.video_name().replace('_reference_video.mp4', '')
-        if not os.path.exists(Video_dir):
-            pmkdir(Video_dir)
+    def calculate_bits_multi(self, video, CRF, video_chunk_counter,video_dir = None):
+        Video_dir = video_dir
 
         # Define the list of resolutions
         Resolution = RESOLUTION_LIST
