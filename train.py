@@ -15,11 +15,11 @@ def train():
     has_continuous_action_space = True  # continuous action space; else discrete
 
     # max_ep_len = 100000  # max timesteps in one episode
-    max_ep_len = 2000
+    max_ep_len = 1000
     max_training_timesteps = int(3e6)  # break training loop if timeteps > max_training_timesteps
 
-    print_freq = 500  # print avg reward in the interval (in num timesteps)
-    log_freq =  500  # log avg reward in the interval (in num timesteps)
+    print_freq = max_ep_len  # print avg reward in the interval (in num timesteps)
+    log_freq =  max_ep_len  # log avg reward in the interval (in num timesteps)
     save_model_freq = int(500)  # save model frequency (in num timesteps)
 
     action_std = 0.6  # starting std for action distribution (Multivariate Normal)
@@ -31,7 +31,7 @@ def train():
     ## Note : print/log frequencies should be > than max_ep_len
 
     ################ PPO hyperparameters ################
-    update_timestep = 4*200  # update policy every n timesteps
+    update_timestep = 200*4  # update policy every n timesteps
     K_epochs = 80  # update policy for K epochs in one PPO update
 
     eps_clip = 0.2  # clip parameter for PPO
@@ -168,7 +168,9 @@ def train():
 
     time_step = 0
     i_episode = 0
-
+    best_avg_reward = -np.inf
+    num_episodes_without_improvement = 0
+    max_episodes_without_improvement = 50
     # training loop
     while time_step <= max_training_timesteps:
 
@@ -197,7 +199,17 @@ def train():
 
             # update PPO agent
             if time_step % update_timestep == 0:
-                ppo_agent.update()
+                policy_loss, value_loss,entropy_loss = ppo_agent.update()
+                loss = policy_loss + value_loss + entropy_loss
+                # Log individual scalar values
+                # writer.add_scalar('Loss/Total_loss', loss.mean().item(), time_step)
+                # writer.add_scalar('Loss/Policy_loss', policy_loss.mean().item(), time_step)
+                # writer.add_scalar('Loss/Value_loss', value_loss.mean().item(), time_step)
+                # writer.add_scalar('Loss/Entropy_loss', entropy_loss.mean().item(), time_step)
+                writer.add_scalars('Loss',   {'Total loss':loss.mean().item(),'policy_loss': policy_loss.mean().item(), \
+                                            'value_loss': value_loss.mean().item(), 'entropy_loss': entropy_loss.mean().item()}, time_step)
+                                            
+
 
             # if continuous action space; then decay action std of ouput action distribution
             if has_continuous_action_space and time_step % action_std_decay_freq == 0:
@@ -209,6 +221,16 @@ def train():
                 if log_running_episodes > 0:
                     log_avg_reward = log_running_reward / log_running_episodes
                     log_avg_reward = round(log_avg_reward, 4)
+                    ## Early stopping
+                    if log_avg_reward > best_avg_reward:
+                        best_avg_reward = log_avg_reward
+                        num_episodes_without_improvement = 0
+                    else:
+                        num_episodes_without_improvement += log_running_episodes
+
+                    if num_episodes_without_improvement > max_episodes_without_improvement:
+                        print(f"Early stopping at episode {i_episode}")
+                        break
 
                     log_f.write('{},{},{}\n'.format(i_episode, time_step, log_avg_reward))
                     log_f.flush()
