@@ -305,8 +305,10 @@ class PPO:
             ppo2loss = torch.min(surr1,surr2)
             # Dual-clip PPO  Positive remain same , negtive clip 3.0
             dual_loss = torch.where(advantages < 0, torch.max(ppo2loss,3 *advantages ), ppo2loss)
+            value_loss = 5 * self.MseLoss(state_values, rewards)
+            entropy_loss = -self._entropy_weight * dist_entropy
             # final loss of clipped objective PPO
-            loss = -dual_loss  + 5 * self.MseLoss(state_values, rewards) - self._entropy_weight * dist_entropy
+            loss = -dual_loss  + value_loss + entropy_loss
 
             # take gradient step
             self.optimizer.zero_grad()
@@ -321,6 +323,7 @@ class PPO:
 
         # clear buffer
         self.buffer.clear()
+        return -dual_loss, value_loss, entropy_loss
 
     def save(self, checkpoint_path):
         torch.save(self.policy_old.state_dict(), checkpoint_path)
