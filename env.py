@@ -33,8 +33,8 @@ class ABREnv():
     def __init__(self, random_seed=RANDOM_SEED, trace_folder=None,video_path=None,writer=None, test=False):
 
         #video_path = 'bigbuckbunny360p24.mp4' if video_path is None else video_path
-        video_path = 'bigbuckbunny1080p30.mp4' 
-        #video_path = 'bigbuckbunny2160p60.mp4' if video_path is None else video_path
+        #video_path = 'bigbuckbunny1080p30.mp4' 
+        video_path = 'Video_source/Tears_of_Steel_360p24.mp4' if video_path is None else video_path
         np.random.seed(random_seed)
         if test:
             all_cooked_time, all_cooked_bw,all_trace_file_names = load_trace.load_trace(trace_folder)
@@ -150,7 +150,7 @@ def linear_mapping(value, in_min, in_max, out_min, out_max):
 
 def decoder_action(action):
     B, CRF = (action[0] + 1), (action[1] + 1)
-    B = linear_mapping(B, 0, 2, 500, 6000)
+    B = linear_mapping(B, 0, 2, 1000, 10000)
     CRF = round(linear_mapping(CRF, 0, 2, 15, 40)) # 0-51 too large -> 15-40 try
     return B, CRF
 
