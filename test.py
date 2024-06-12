@@ -29,15 +29,21 @@ def test(args):
     writer = SummaryWriter()
     #####################################################
     Total_start_time = time.time()
+    # Create tmp test trace directory to store one trace file and copy the trace file in it
+
+    done_path = test_trace_folder + 'done/'
+    if not os.path.exists(done_path):
+        pmkdir(done_path)
     for trace in os.listdir(test_trace_folder):
-        if trace == 'tmp':
+        tmp_path = test_trace_folder + 'tmp/'
+        if not os.path.exists(tmp_path): 
+            pmkdir(tmp_path)
+        
+        if trace == 'tmp' or trace == 'done':
             continue
         trace_path = os.path.join(test_trace_folder, trace)
         print(f'Trace: {trace_path}')
-        # create tmp test trace directory to store one trace file and copy the trace file in it
-        tmp_path = test_trace_folder + 'tmp/'   
-        # copy the trace file to the tmp directory
-        pmkdir(tmp_path)
+        # Copy one trace file in tmp directory
         os.system(f'cp {trace_path} {tmp_path+trace}')
         print(f'Trace: {trace} copied to {tmp_path}')
 
@@ -111,7 +117,13 @@ def test(args):
         env.close()
         
         print("--------------------------------------------------------------------------------------------")
+        print("Trace: {} Simulation Done".format(trace) )
         print("Test Episodes: {} \t\t Average Test Reward: {}".format(test_episodes, round(test_running_reward / test_episodes, 2)))
+
+        # Copy the trace file to done directory
+        os.system(f'cp {trace_path} {done_path+trace}')
+        # remove the trace file from the test directory
+        os.system(f'rm -r {trace_path}')
         # remove the tmp directory
         os.system(f'rm -r {tmp_path}')
         print("Successfully removed the tmp trace directory")
