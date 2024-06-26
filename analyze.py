@@ -159,10 +159,13 @@ def Calculate_average_metrics(df):
     stall_time = df["REBUF"].sum()
     switch_ratio = Switch_count/len(df)
     total_size = df['BYTES'].sum()
+    #vmaf smoothness = average of difference between consecutive vmaf scores
+    avg_vmaf_smoothness = (df['VMAF'].diff().abs().sum()/(len(df)-1))
     print(f'Average Duration: {avg_duration/1000:.2f}s')
     print(f'Average Size: {avg_size/1e6:.2f}MB')
     print(f'Average Buffer State: {avg_buffer_state/1000:.2f}s')
     print(f'Average VMAF Score:" {avg_vmaf}')
+    print(f'Average VMAF Smoothness: {avg_vmaf_smoothness:.2f}')
     print(f'Average Bitrate: {avg_bitrate}bps')
     print(f'Stall Ratio: {stall_ratio:.2f}%')
     print(f'Stall Time: {stall_time/1000:.2f}s')
@@ -170,154 +173,156 @@ def Calculate_average_metrics(df):
     print(f'Total Size: {total_size/1e6:.2f}MB')
 
     return {
-    'Average Duration': f'{avg_duration/1000:.2f}s',
-    'Average Size': f'{avg_size/1e6:.2f}MB',
-    'Average Buffer State': f'{avg_buffer_state/1000:.2f}s',
+    'Average Duration(s)': f'{avg_duration/1000:.2f}',
+    'Average Size(MB)': f'{avg_size/1e6:.2f}',
+    'Average Buffer State(s)': f'{avg_buffer_state/1000:.2f}',
     'Average VMAF Score': avg_vmaf,
-    'Average Bitrate': f'{avg_bitrate}bps',
-    'Stall Ratio': f'{stall_ratio:.2f}%',
-    'Stall Time': f'{stall_time/1000:.2f}s',
-    'Switch Ratio': f'{switch_ratio:.2f}%',
-    'Total Size': f'{total_size/1e6:.2f}MB'
+    'Average VMAF Smoothness': f'{avg_vmaf_smoothness:.2f}',
+    'Average Bitrate(bps)': f'{avg_bitrate}',
+    'Stall Ratio(%)': f'{stall_ratio:.2f}',
+    'Stall Time(s)': f'{stall_time/1000:.2f}',
+    'Switch Ratio(%)': f'{switch_ratio:.2f}',
+    'Total Size(MB)': f'{total_size/1e6:.2f}'
         }
 if __name__ == '__main__':
     # Read the CSV files
-    video_name = 'TOS_360p24' # 'BBB' or 'TOS' 
-    wide_eye_csv_path = './Training_output/segue_wide_eye/{}/'.format(video_name)
-    constant_csv_path_ = './Training_output/segue_constant_5/{}/'.format(video_name)
-    gop_5_csv_path_ = './Training_output/segue_GOP-5/{}/'.format(video_name)
-    our_PPO_csv_path = './Training_output/QAOCS/{}/'.format(video_name)
+    video_list = ['BBB_360p24','LOL_3D','sport_highlight','sport_long_take','TOS_360p24','video_game','underwater']
+    for video_name in video_list:
+    #video_name = 'video_game' # 'BBB' or 'TOS' 
+        wide_eye_csv_path = './Training_output/segue_wide_eye/{}/'.format(video_name)
+        constant_csv_path_ = './Training_output/segue_constant_5/{}/'.format(video_name)
+        gop_5_csv_path_ = './Training_output/segue_GOP-5/{}/'.format(video_name)
+        our_PPO_csv_path = './Training_output/QAOCS/{}/'.format(video_name)
 
-    results=[]
-    for file in os.listdir(wide_eye_csv_path):
-        if file.endswith(".csv"):
-            baseline_csv_path = os.path.join(wide_eye_csv_path, file)
-            my_method_csv_path = os.path.join(our_PPO_csv_path, file)
-            gop_5_csv_path = os.path.join(gop_5_csv_path_, file)
-            constant_csv_path = os.path.join(constant_csv_path_, file)
+        results=[]
+        for file in os.listdir(wide_eye_csv_path):
+            if file.endswith(".csv"):
+                baseline_csv_path = os.path.join(wide_eye_csv_path, file)
+                my_method_csv_path = os.path.join(our_PPO_csv_path, file)
+                gop_5_csv_path = os.path.join(gop_5_csv_path_, file)
+                constant_csv_path = os.path.join(constant_csv_path_, file)
+            
+
+
+                save_path = './Figures/'+video_name+'/'
+                pmkdir(save_path)
+
+                # read the csv files
+                my_method_df = pd.read_csv(my_method_csv_path)
+                baseline_df = pd.read_csv(baseline_csv_path)
+                gop_5_df = pd.read_csv(gop_5_csv_path)
+                constant_5_df = pd.read_csv(constant_csv_path)
+
+                # segue framwork time scale is seconds, convert to milliseconds including the  buffer state, and segment progressive and rebuff
+                baseline_df['DURATION'] = baseline_df['DURATION'] * 1000
+                baseline_df['BUFFER_STATE'] = baseline_df['BUFFER_STATE'] * 1000
+                baseline_df['REBUF'] = baseline_df['REBUF'] * 1000
+                # baseline VMAF is normalize by Duration/4 we need to convert it to the original scale
+                baseline_df['VMAF'] = baseline_df['VMAF'] * 4 / (baseline_df['DURATION']/1000)
+
+                gop_5_df['DURATION'] = gop_5_df['DURATION'] * 1000
+                gop_5_df['BUFFER_STATE'] = gop_5_df['BUFFER_STATE'] * 1000
+                gop_5_df['REBUF'] = gop_5_df['REBUF'] * 1000
+                gop_5_df['VMAF'] = gop_5_df['VMAF'] * 4 / (gop_5_df['DURATION']/1000)
+
+                constant_5_df['DURATION'] = constant_5_df['DURATION'] * 1000
+                constant_5_df['BUFFER_STATE'] = constant_5_df['BUFFER_STATE'] * 1000
+                constant_5_df['REBUF'] = constant_5_df['REBUF'] * 1000
+                constant_5_df['VMAF'] = constant_5_df['VMAF'] * 4 / (constant_5_df['DURATION']/1000)
+
+
+
+
+                plot_segment_duration(baseline_df, my_method_df,save_path)
+                plot_segment_size(baseline_df, my_method_df,save_path)
+                plot_buffer_state(baseline_df, my_method_df,save_path)
+                plot_vmaf_score(baseline_df, my_method_df,save_path)
+                plot_bitrate(baseline_df, my_method_df,save_path)
+                plot_size_boxplot(baseline_df, my_method_df,save_path)
+                plot_total_size(baseline_df, my_method_df,save_path)
+                #plot_subplots(baseline_df, my_method_df)
+
+
+
+        
+                # Calculate average metrics for your method
+                # Switch ratio is the number of switches between different quality levels
+                our_method_switch_count = (my_method_df["QUALITY_INDEX"]-my_method_df["QUALITY_INDEX"].shift(1).fillna(0)!=0).sum()
+                our_method_avg_duration = my_method_df['DURATION'].mean()
+                our_method_avg_size = my_method_df['BYTES'].mean()
+                our_method_avg_buffer_state = my_method_df['BUFFER_STATE'].mean()
+                our_method_avg_vmaf = (my_method_df['VMAF'].mean()*my_method_df['DURATION']/1000).sum()/ (my_method_df['DURATION']/1000).sum()
+                our_method_avg_bitrate = my_method_df['BITRATE'].mean()
+                our_method_stall_ratio = my_method_df["REBUF"].sum()/my_method_df["DURATION"].sum()*100
+                our_method_switch_ratio = our_method_switch_count/len(my_method_df)
+                our_method_total_size = my_method_df['BYTES'].sum()
+
+                # Calculate average metrics for the baseline
+                baseline_switch_count = (baseline_df["QUALITY_INDEX"]-baseline_df["QUALITY_INDEX"].shift(1).fillna(0)!=0).sum()
+                baseline_avg_duration = baseline_df['DURATION'].mean()
+                baseline_avg_size = baseline_df['BYTES'].mean()
+                baseline_avg_buffer_state = baseline_df['BUFFER_STATE'].mean()
+                baseline_avg_vmaf = (baseline_df['VMAF']*baseline_df['DURATION']/1000).sum()/ (baseline_df['DURATION']/1000).sum()
+                baseline_avg_bitrate = baseline_df['BITRATE'].mean()
+                baseline_stall_ratio = baseline_df["REBUF"].sum()/baseline_df["DURATION"].sum()*100
+                baseline_switch_ratio = baseline_switch_count/len(baseline_df)
+                baseline_avg_duration = baseline_df['DURATION'].mean()
+
+                # Calculate average metrics for the GOP-5
+                gop_5_switch_count = (gop_5_df["QUALITY_INDEX"]-gop_5_df["QUALITY_INDEX"].shift(1).fillna(0)!=0).sum()
+                gop_5_avg_duration = gop_5_df['DURATION'].mean()
+                gop_5_avg_size = gop_5_df['BYTES'].mean()
+                gop_5_avg_buffer_state = gop_5_df['BUFFER_STATE'].mean()
+                gop_5_avg_vmaf = (gop_5_df['VMAF']*gop_5_df['DURATION']/1000).sum()/ (gop_5_df['DURATION']/1000).sum()
+                gop_5_avg_bitrate = gop_5_df['BITRATE'].mean()
+                gop_5_stall_ratio = gop_5_df["REBUF"].sum()/gop_5_df["DURATION"].sum()*100
+                gop_5_switch_ratio = gop_5_switch_count/len(gop_5_df)
+                gop_5_total_size = gop_5_df['BYTES'].sum()
+
+                # Calculate average metrics for the constant-5
+                constant_5_switch_count = (constant_5_df["QUALITY_INDEX"]-constant_5_df["QUALITY_INDEX"].shift(1).fillna(0)!=0).sum()
+                constant_5_avg_duration = constant_5_df['DURATION'].mean()
+                constant_5_avg_size = constant_5_df['BYTES'].mean()
+                constant_5_avg_buffer_state = constant_5_df['BUFFER_STATE'].mean()
+                constant_5_avg_vmaf = (constant_5_df['VMAF']*constant_5_df['DURATION']/1000).sum()/ (constant_5_df['DURATION']/1000).sum()
+                constant_5_avg_bitrate = constant_5_df['BITRATE'].mean()
+                constant_5_stall_ratio = constant_5_df["REBUF"].sum()/constant_5_df["DURATION"].sum()*100
+                constant_5_switch_ratio = constant_5_switch_count/len(constant_5_df)
+                constant_5_total_size = constant_5_df['BYTES'].sum()
+
+                print("Our Method:")
+                our_method_metrics = Calculate_average_metrics(my_method_df)
         
 
+                print("\nBaseline:")
+                baseline_metrics = Calculate_average_metrics(baseline_df)
 
-            save_path = './Figures/'+video_name+'/'
-            pmkdir(save_path)
+                print("\nGOP-5:")
+                gop_5_metrics  = Calculate_average_metrics(gop_5_df)
 
-            # read the csv files
-            my_method_df = pd.read_csv(my_method_csv_path)
-            baseline_df = pd.read_csv(baseline_csv_path)
-            gop_5_df = pd.read_csv(gop_5_csv_path)
-            constant_5_df = pd.read_csv(constant_csv_path)
+                print("\nConstant-5:")
+                constant_5_metrics = Calculate_average_metrics(constant_5_df)
+                            # Add the results to the list
+                results.append({
+                    'File': file,
+                    'QAOCS': our_method_metrics,
+                    'Segue': baseline_metrics,
+                    'GOP-5': gop_5_metrics,
+                    'Constant-5': constant_5_metrics
+                })
+        # Write the results to a CSV file
+        output_file = video_name + '_performance_comparison.csv'
+        with open(output_file, 'w', newline='') as csvfile:
+            fieldnames = ['File', 'Method', 'Average Duration(s)', 'Average Size(MB)', 'Average Buffer State(s)',
+                        'Average VMAF Score','Average VMAF Smoothness', 'Average Bitrate(bps)', 'Stall Time(s)','Stall Ratio(%)', 'Switch Ratio(%)', 'Total Size(MB)']
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            writer.writeheader()
 
-            # segue framwork time scale is seconds, convert to milliseconds including the  buffer state, and segment progressive and rebuff
-            baseline_df['DURATION'] = baseline_df['DURATION'] * 1000
-            baseline_df['BUFFER_STATE'] = baseline_df['BUFFER_STATE'] * 1000
-            baseline_df['REBUF'] = baseline_df['REBUF'] * 1000
-            # baseline VMAF is normalize by Duration/4 we need to convert it to the original scale
-            baseline_df['VMAF'] = baseline_df['VMAF'] * 4 / (baseline_df['DURATION']/1000)
+            for result in results:
+                file = result['File']
+                for method, metrics in result.items():
+                    if method != 'File':
+                        row = {'File': file, 'Method': method, **metrics}
+                        writer.writerow(row)
 
-            gop_5_df['DURATION'] = gop_5_df['DURATION'] * 1000
-            gop_5_df['BUFFER_STATE'] = gop_5_df['BUFFER_STATE'] * 1000
-            gop_5_df['REBUF'] = gop_5_df['REBUF'] * 1000
-            gop_5_df['VMAF'] = gop_5_df['VMAF'] * 4 / (gop_5_df['DURATION']/1000)
-
-            constant_5_df['DURATION'] = constant_5_df['DURATION'] * 1000
-            constant_5_df['BUFFER_STATE'] = constant_5_df['BUFFER_STATE'] * 1000
-            constant_5_df['REBUF'] = constant_5_df['REBUF'] * 1000
-            constant_5_df['VMAF'] = constant_5_df['VMAF'] * 4 / (constant_5_df['DURATION']/1000)
-
-
-
-
-            plot_segment_duration(baseline_df, my_method_df,save_path)
-            plot_segment_size(baseline_df, my_method_df,save_path)
-            plot_buffer_state(baseline_df, my_method_df,save_path)
-            plot_vmaf_score(baseline_df, my_method_df,save_path)
-            plot_bitrate(baseline_df, my_method_df,save_path)
-            plot_size_boxplot(baseline_df, my_method_df,save_path)
-            plot_total_size(baseline_df, my_method_df,save_path)
-            #plot_subplots(baseline_df, my_method_df)
-
-
-
-    
-            # Calculate average metrics for your method
-            # Switch ratio is the number of switches between different quality levels
-            our_method_switch_count = (my_method_df["QUALITY_INDEX"]-my_method_df["QUALITY_INDEX"].shift(1).fillna(0)!=0).sum()
-            our_method_avg_duration = my_method_df['DURATION'].mean()
-            our_method_avg_size = my_method_df['BYTES'].mean()
-            our_method_avg_buffer_state = my_method_df['BUFFER_STATE'].mean()
-            our_method_avg_vmaf = (my_method_df['VMAF'].mean()*my_method_df['DURATION']/1000).sum()/ (my_method_df['DURATION']/1000).sum()
-            our_method_avg_bitrate = my_method_df['BITRATE'].mean()
-            our_method_stall_ratio = my_method_df["REBUF"].sum()/my_method_df["DURATION"].sum()*100
-            our_method_switch_ratio = our_method_switch_count/len(my_method_df)
-            our_method_total_size = my_method_df['BYTES'].sum()
-
-            # Calculate average metrics for the baseline
-            baseline_switch_count = (baseline_df["QUALITY_INDEX"]-baseline_df["QUALITY_INDEX"].shift(1).fillna(0)!=0).sum()
-            baseline_avg_duration = baseline_df['DURATION'].mean()
-            baseline_avg_size = baseline_df['BYTES'].mean()
-            baseline_avg_buffer_state = baseline_df['BUFFER_STATE'].mean()
-            baseline_avg_vmaf = (baseline_df['VMAF']*baseline_df['DURATION']/1000).sum()/ (baseline_df['DURATION']/1000).sum()
-            baseline_avg_bitrate = baseline_df['BITRATE'].mean()
-            baseline_stall_ratio = baseline_df["REBUF"].sum()/baseline_df["DURATION"].sum()*100
-            baseline_switch_ratio = baseline_switch_count/len(baseline_df)
-            baseline_avg_duration = baseline_df['DURATION'].mean()
-
-            # Calculate average metrics for the GOP-5
-            gop_5_switch_count = (gop_5_df["QUALITY_INDEX"]-gop_5_df["QUALITY_INDEX"].shift(1).fillna(0)!=0).sum()
-            gop_5_avg_duration = gop_5_df['DURATION'].mean()
-            gop_5_avg_size = gop_5_df['BYTES'].mean()
-            gop_5_avg_buffer_state = gop_5_df['BUFFER_STATE'].mean()
-            gop_5_avg_vmaf = (gop_5_df['VMAF']*gop_5_df['DURATION']/1000).sum()/ (gop_5_df['DURATION']/1000).sum()
-            gop_5_avg_bitrate = gop_5_df['BITRATE'].mean()
-            gop_5_stall_ratio = gop_5_df["REBUF"].sum()/gop_5_df["DURATION"].sum()*100
-            gop_5_switch_ratio = gop_5_switch_count/len(gop_5_df)
-            gop_5_total_size = gop_5_df['BYTES'].sum()
-
-            # Calculate average metrics for the constant-5
-            constant_5_switch_count = (constant_5_df["QUALITY_INDEX"]-constant_5_df["QUALITY_INDEX"].shift(1).fillna(0)!=0).sum()
-            constant_5_avg_duration = constant_5_df['DURATION'].mean()
-            constant_5_avg_size = constant_5_df['BYTES'].mean()
-            constant_5_avg_buffer_state = constant_5_df['BUFFER_STATE'].mean()
-            constant_5_avg_vmaf = (constant_5_df['VMAF']*constant_5_df['DURATION']/1000).sum()/ (constant_5_df['DURATION']/1000).sum()
-            constant_5_avg_bitrate = constant_5_df['BITRATE'].mean()
-            constant_5_stall_ratio = constant_5_df["REBUF"].sum()/constant_5_df["DURATION"].sum()*100
-            constant_5_switch_ratio = constant_5_switch_count/len(constant_5_df)
-            constant_5_total_size = constant_5_df['BYTES'].sum()
-
-            print("Our Method:")
-            our_method_metrics = Calculate_average_metrics(my_method_df)
-    
-
-            print("\nBaseline:")
-            baseline_metrics = Calculate_average_metrics(baseline_df)
-
-            print("\nGOP-5:")
-            gop_5_metrics  = Calculate_average_metrics(gop_5_df)
-
-            print("\nConstant-5:")
-            constant_5_metrics = Calculate_average_metrics(constant_5_df)
-                        # Add the results to the list
-            results.append({
-                'File': file,
-                'Our Method': our_method_metrics,
-                'Baseline': baseline_metrics,
-                'GOP-5': gop_5_metrics,
-                'Constant-5': constant_5_metrics
-            })
-    # Write the results to a CSV file
-    output_file = 'performance_comparison.csv'
-    with open(output_file, 'w', newline='') as csvfile:
-        fieldnames = ['File', 'Method', 'Average Duration', 'Average Size', 'Average Buffer State',
-                      'Average VMAF Score', 'Average Bitrate', 'Stall Time','Stall Ratio', 'Switch Ratio', 'Total Size']
-        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-        writer.writeheader()
-
-        for result in results:
-            file = result['File']
-            for method, metrics in result.items():
-                if method != 'File':
-                    row = {'File': file, 'Method': method, **metrics}
-                    writer.writerow(row)
-
-    print(f"Performance comparison results saved to {output_file}")
-
+        print(f"{video_name} Performance comparison results saved to {video_name+output_file}")

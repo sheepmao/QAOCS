@@ -30,7 +30,8 @@ dataset_data = {
     'ghent': [],
     'hsr': [],
     'lab': [],
-    'oboe': []
+    'oboe': [],
+    'Norway': []
 }
 
 # Iterate over each dataset directory
@@ -121,5 +122,5 @@ ax2.grid(True)
 ax2.legend()
 
 plt.tight_layout()
-plt.savefig('cdf_plots.png')
+plt.savefig('cdf_plots.pdf')
 plt.show()

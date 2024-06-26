@@ -1,7 +1,7 @@
 import os
 
 # Directory path containing the files
-directory = "./Training_output/QAOCS/TOS"
+directory = "./Training_output/QAOCS/LOL_3D"
 
 # Iterate over the files in the directory
 for filename in os.listdir(directory):
@@ -10,8 +10,8 @@ for filename in os.listdir(directory):
         parts = filename.split("_")
         
         # Extract the relevant parts
-        dataset_name = parts[3].replace("360p24","")
-        trace_number = parts[5]
+        dataset_name = parts[1].replace("3D","")
+        trace_number = parts[3]
         
         # Construct the new filename
         new_filename = f"{dataset_name}_trace_{trace_number}.csv"

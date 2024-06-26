@@ -324,6 +324,20 @@ class Video:
 
         return video
 
+    # def crop_video(self, start_time, end_time, video_out_path):
+    #     cmd = "ffmpeg -i {} -ss {} -to {} -c copy {}".format(self._video_path, start_time, end_time, video_out_path)
+    #     print("Executing {}".format(cmd))
+    #     proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    #     outs, errs = proc.communicate()
+    #     print("FFmpeg output:", outs.decode())
+    #     print("FFmpeg error:", errs.decode())
+        
+    #     if not os.path.exists(video_out_path):
+    #         raise RuntimeError("Cropping failed. Output video file does not exist.")
+        
+    #     print("Cropping from {} to {} completed successfully!".format(self._video_path, video_out_path))
+    #     video = Video(video_out_path, self.logs_dir, self.verbose)
+    #     return video
     def crop_video(self, start_time, end_time, video_out_path):
         # 获取视频的帧率
         vid = VideoFileClip(self._video_path)
