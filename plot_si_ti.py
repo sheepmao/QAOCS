@@ -61,7 +61,7 @@ def plot_si_ti(si_values, ti_values,video_name):
     plt.legend()
 
     plt.suptitle('SI and TI Values over Frames')
-    plt.savefig(os.path.join(save_path, video_name + "si_ti_plot.png"))
+    plt.savefig(os.path.join(save_path, video_name + "si_ti_plot.pdf"))
     plt.close()
 
     # plot Si and Ti values in the same plot X-axis SI, Y-axis TI
@@ -70,13 +70,13 @@ def plot_si_ti(si_values, ti_values,video_name):
 
     plt.figure(figsize=(6, 6))
     plt.scatter(si_values, ti_values, c=z, s=10, edgecolor='none')
-    plt.colorbar(label='Density',fontsize=15)
+    plt.colorbar(label='Density')
     plt.xlabel('Spatial Information (SI)', fontsize=18)
     plt.ylabel('Temporal Information (TI)',fontsize=18)
     plt.title('SI and TI Values',fontsize=18)
     plt.grid(True)
     plt.show()
-    plt.savefig(os.path.join(save_path, f"{video_name}.png"))
+    plt.savefig(os.path.join(save_path, f"{video_name}.pdf"))
     plt.close()
 
 if __name__ == '__main__':

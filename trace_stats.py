@@ -1,28 +1,137 @@
 import os
 import matplotlib.pyplot as plt
 import numpy as np
-
+import pandas as pd
+import seaborn as sns
 # Directory containing the trace datasets
 trace_directory = 'traces'
-figure_directory = './traces/figures'
-def plot_trace(Dataset_name,filename, timestamps, bandwidths):
+figure_directory = './traces/figures/'
+
+def plot_trace(Dataset_name, filename, timestamps, bandwidths):
     # Plot the trace data
-    save_path = figure_directory + '/'+Dataset_name + '/' +'plots/'+filename
-    if not os.path.exists(figure_directory + '/'+Dataset_name + '/' +'plots/'):
-        os.makedirs(figure_directory + '/'+Dataset_name + '/' +'plots/')
+    save_path = figure_directory + Dataset_name + '/' + 'plots/' + filename
+    if not os.path.exists(figure_directory  + Dataset_name + '/' + 'plots/'):
+        os.makedirs(figure_directory + Dataset_name + '/' + 'plots/')
     plt.figure(figsize=(10, 6))
     plt.plot(timestamps, bandwidths, label='Trace Data')
     plt.xlabel('Time (s)')
     plt.ylabel('Bandwidth (Mbps)')
-    plt.title(f'Trace Data: {filename}')
+    plt.title(f'Trace Dataset: {Dataset_name}')
     plt.legend()
     plt.grid(True)
     plt.savefig(f'{save_path}.png')
+    plt.savefig(f'{save_path}.pdf')
     plt.show()
     plt.close()
 
-# Create the figure
-fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 5))
+def moving_average(data, window_size):
+    return np.convolve(data, np.ones(window_size)/window_size, mode='valid')
+
+def plot_box_plot(dataset_data):
+    plt.figure(figsize=(15, 10))
+    data_to_plot = []
+    labels = []
+    for dataset, data in dataset_data.items():
+        if data:
+            bandwidths = [bandwidth for trace in data for bandwidth in trace[1]]
+            data_to_plot.append(bandwidths)
+            labels.append(dataset)
+    colors = ['#FF9999', '#66B2FF', '#99FF99', '#FFCC99', '#FFD700', '#FF6F61', '#009688']
+    bplot = plt.boxplot(data_to_plot,patch_artist=True, labels=labels)
+    # Coloring each box
+    for patch, color in zip(bplot['boxes'], colors):
+        patch.set_facecolor(color)
+
+    plt.xlabel('Dataset')
+    plt.ylabel('Bandwidth (Mbps)')
+    plt.title('Box Plot of Bandwidth for Different Network Traces')
+    plt.grid(True, which="both", ls="--")
+    plt.savefig(figure_directory+'box_plot_bandwidth.png')
+    plt.savefig(figure_directory+'box_plot_bandwidth.pdf')
+    plt.show()
+    plt.close()
+
+def plot_moving_average(dataset_data, window_size=50):
+    for dataset, data in dataset_data.items():
+        if not data:
+            continue
+        plt.figure(figsize=(15, 10))
+        # Limiting the number of traces plotted to 5 for clarity
+        for i, (timestamps, bandwidths) in enumerate(data):
+            if i >= 5:
+                break
+
+            mov_avg = moving_average(bandwidths, window_size)
+            plt.plot(timestamps[:len(mov_avg)], mov_avg, label=f'Moving Average {i+1}')
+        plt.xlabel('Time (s)')
+        plt.ylabel('Bandwidth (Mbps)')
+        plt.title(f'Moving Average of Bandwidth for {dataset} (Window Size={window_size})')
+        plt.legend(loc='upper right', fontsize='small')
+        plt.grid(True)
+        plt.savefig(f'{figure_directory}{dataset}_moving_average.png')
+        plt.savefig(f'{figure_directory}{dataset}_moving_average.pdf')
+        plt.show()
+        plt.close()
+
+def plot_histogram(dataset_data):
+    plt.figure(figsize=(15, 10))
+    for dataset, data in dataset_data.items():
+        if data:
+            bandwidths = [bandwidth for trace in data for bandwidth in trace[1]]
+
+            plt.hist(bandwidths, bins=50, alpha=0.5, label=dataset)
+    plt.xlabel('Bandwidth (Mbps)')
+    plt.ylabel('Frequency')
+    plt.title('Histogram of Bandwidth for Different Network Traces')
+    plt.legend()
+    plt.grid(True, which="both", ls="--")
+    plt.savefig(figure_directory+'histogram_bandwidth.png')
+    plt.savefig(figure_directory+'histogram_bandwidth.pdf')
+    plt.show()
+    plt.close()
+
+def plot_spectral_analysis(dataset_data):
+    for dataset, data in dataset_data.items():
+        if not data:
+            continue
+        plt.figure(figsize=(15, 10))
+        # Limiting the number of traces plotted to 5 for clarity
+        for i, (timestamps, bandwidths) in enumerate(data):
+            if i >= 3:
+                break
+            fft_vals = np.fft.fft(bandwidths)
+            fft_freq = np.fft.fftfreq(len(fft_vals), d=(timestamps[1] - timestamps[0]))
+            plt.plot(fft_freq, np.abs(fft_vals), label=f'Spectral Analysis {i+1}')
+        plt.xlabel('Frequency (Hz)')
+        plt.ylabel('Amplitude')
+        plt.title(f'Spectral Analysis of Bandwidth for {dataset}')
+        plt.legend(loc='upper right', fontsize='small')
+        plt.grid(True)
+        plt.savefig(f'{figure_directory}{dataset}_spectral_analysis.png')
+        plt.savefig(f'{figure_directory}{dataset}_spectral_analysis.pdf')
+        plt.show()
+        plt.close()
+def plot_time_series_variability(dataset_data):
+    for dataset, data in dataset_data.items():
+        if not data:
+            continue
+        plt.figure(figsize=(15, 10))
+        # Limiting the number of traces plotted to 5 for clarity
+        for i, (timestamps, bandwidths) in enumerate(data):
+            if i >= 5:
+                break
+            variability = np.diff(bandwidths)
+            plt.plot(timestamps[1:], variability, label=f'Variability {i+1}')
+        plt.xlabel('Time (s)')
+        plt.ylabel('Bandwidth Change (Mbps)')
+        plt.title(f'Time Series Variability of Bandwidth for {dataset}')
+        plt.legend(loc='upper right', fontsize='small')
+        plt.grid(True)
+        plt.savefig(f'{figure_directory}{dataset}_variability.png')
+        plt.savefig(f'{figure_directory}{dataset}_variability.pdf')
+        plt.show()
+        plt.close()
+
 
 # Dictionary to store the data for each dataset
 dataset_data = {
@@ -31,7 +140,8 @@ dataset_data = {
     'hsr': [],
     'lab': [],
     'oboe': [],
-    'Norway': []
+    'HSDPA': []
+    #'lumos5G': []
 }
 
 # Iterate over each dataset directory
@@ -66,7 +176,7 @@ for dataset in dataset_data.keys():
                     continue
         
         # plot the trace data
-        plot_trace(dataset,filename,timestamps, bandwidths)
+        plot_trace(dataset, filename, timestamps, bandwidths)
         # Append the data to the respective dataset list
         dataset_data[dataset].append((timestamps, bandwidths))
 
@@ -76,6 +186,7 @@ if not any(dataset_data.values()):
     exit(1)
 
 # Plot the CDF for average bandwidth and standard deviation for each dataset
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 5))
 Max_avg_bandwidth = 0
 Max_std_dev = 0
 for dataset, data in dataset_data.items():
@@ -86,6 +197,7 @@ for dataset, data in dataset_data.items():
     avg_bandwidths = []
     std_devs = []
     for _, bandwidths in data:
+
         avg_bandwidths.append(sum(bandwidths) / len(bandwidths))
         variance = sum((x - avg_bandwidths[-1]) ** 2 for x in bandwidths) / len(bandwidths)
         std_devs.append(variance ** 0.5)
@@ -95,7 +207,7 @@ for dataset, data in dataset_data.items():
     if Max_avg_bandwidth < max(sorted_avg_bandwidths):
         Max_avg_bandwidth = max(sorted_avg_bandwidths)
     cdf_avg = np.arange(len(sorted_avg_bandwidths)) / float(len(sorted_avg_bandwidths))
-    ax1.plot(sorted_avg_bandwidths, cdf_avg * 100, linestyle='-', marker='o',markersize=1.5, label=dataset)
+    ax1.plot(sorted_avg_bandwidths, cdf_avg * 100, linestyle='-', marker='o', markersize=1.5, label=dataset)
     
     # Plot CDF for standard deviation
     sorted_std_devs = np.sort(std_devs)
@@ -103,7 +215,7 @@ for dataset, data in dataset_data.items():
         Max_std_dev = max(sorted_std_devs)
     cdf_std = np.arange(len(sorted_std_devs)) / float(len(sorted_std_devs))
     
-    ax2.plot(sorted_std_devs, cdf_std * 100, linestyle='-', marker='o',markersize=1.5, label=dataset)
+    ax2.plot(sorted_std_devs, cdf_std * 100, linestyle='-', marker='o', markersize=1.5, label=dataset)
 
 # Set labels and limits for the average bandwidth CDF plot
 ax1.set_xlabel('Average Bandwidth (Mbps)')
@@ -122,5 +234,12 @@ ax2.grid(True)
 ax2.legend()
 
 plt.tight_layout()
-plt.savefig('cdf_plots.pdf')
+plt.savefig(figure_directory+'cdf_plots.pdf')
 plt.show()
+
+# Generate additional representative figures
+plot_box_plot(dataset_data)
+plot_moving_average(dataset_data)
+plot_histogram(dataset_data)
+plot_spectral_analysis(dataset_data)
+plot_time_series_variability(dataset_data)
